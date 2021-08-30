@@ -1,0 +1,2 @@
+#file with django secret key
+/djangoapp/djangoapp/secrets.py
