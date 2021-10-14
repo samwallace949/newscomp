@@ -1,1 +1,13 @@
-{"name":"newscomp-express","version":"0.1.0","private":true,"dependencies":{"axios":"latest","express":"latest","mongoose":"latest"},"scripts":{"start":"node expressTests.js"}}
+{
+	"name": "newscomp-express",
+	"version": "0.1.0",
+	"private": true,
+	"dependencies": {
+		"express": "latest",
+		"mongoose": "latest",
+		"newsapi": "latest"
+	},
+	"scripts": {
+		"start": "node expressTests.js"
+	}
+}

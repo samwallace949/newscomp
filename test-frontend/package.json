@@ -1,0 +1,11 @@
+{
+  "name": "test-frontend",
+  "version": "1.0.0",
+  "description": "",
+  "dependencies": {
+    "axios": "latest",
+    "http-server": "latest"
+  },
+  "author": "",
+  "license": "ISC"
+}
