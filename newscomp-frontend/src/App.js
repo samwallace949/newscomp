@@ -1,13 +1,14 @@
 import logo from './logo.svg';
-import './App.css';
+import styles from './App.css';
 import Filter from "./filter-window/filter.js";
 import Split from "./split-window/split.js";
 
 function App() {
   return (
     <div>
-     <Filter className = "Filter-window"/>
-     <Split className = "Split-window"/>
+     <script src="./node_modules/axios/dist/axios.min.js"></script>
+     <Filter />
+     {/* <Split className="Split"/> */}
     </div>
   );
 }

@@ -28,6 +28,40 @@
   color: #61dafb;
 }
 
+.termContent{
+  width: 0px;
+  text-align: center;
+  
+}
+.left{
+  margin: auto auto auto 20%;
+}
+
+.right{
+  margin: auto 20% auto 20%;
+}
+
+.results-grid-container{
+  display: grid;
+  width: 100%;
+  grid-template-columns: 50% 50%;
+  margin-bottom: 10px;
+}
+
+.TopTerm{
+  width:96%;
+  height:50px;
+  background-color: white;
+  margin:1% 2% 1% 2%;
+  line-height: 300%;
+}
+
+.terms{
+  width:100%;
+  margin:10px 0px 0px 10px;
+  background-color: darkgray;
+}
+
 @keyframes App-logo-spin {
   from {
     transform: rotate(0deg);
@@ -37,19 +71,44 @@
   }
 }
 
-.split-window{
-  width:98%;
+.border{
   border-radius:5px;
   border-style: solid;
   border-width: 1px;
-  border-color: darkgray;
-  background-color: lightgray;
 }
-.filter-window{
+
+.container{
   width:98%;
-  border-radius:5px;
-  border-style: solid;
-  border-width: 1px;
+  height:auto;
   border-color: darkgray;
   background-color: lightgray;
+  margin: 1% 1% 1% 1%;
+}
+
+.search-bar{
+  height:30px;
+  width:50%;
+  
+}
+.query-bar{
+  margin: 1% 0% 0% 1%;
+}
+.context-bar{
+  margin: 2% 0% 0% 20%;
+}
+
+.searchButton{
+  height:33px;
+  width:60px;
+  margin: 1% 0% 0% 1%;
+  background-color:lightcoral;
+  border-color: white;
+  color:black;
+  text-align: center;
+}
+
+.example-box{
+  background-color: white;
+  width:80%;
+  margin:1% 10% 1% 10%;
 }

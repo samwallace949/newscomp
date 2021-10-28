@@ -1,5 +1,7 @@
+
+
 function Split(){
- return (<div>The Split Box!</div>);
+ return (<div className = "container border">The Split Box!</div>);
 }
 
 

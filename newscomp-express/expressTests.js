@@ -100,6 +100,8 @@ queryRoutes.post("/contextualized", async(req,res)=>{
     //generate examples from persisting data and cleaner module function
     examples = terms.map((t) => Cleaner.examplesInContext(t, currFilteredQueryData, currRawQueryData, 5));
 
+    console.log("Sending term contexts to client...");
+
     //send the response
     res.send({"terms":terms, "examples": examples});
 
@@ -119,7 +121,7 @@ mongoose.connect(connection)
     .then(() => {
         const app = express();
         app.use(function(req, res, next) {
-            res.header("Access-Control-Allow-Origin", "http://localhost:8080");
+            res.header("Access-Control-Allow-Origin", "http://localhost:3000");
             res.header("Access-Control-Allow-Methods", "GET,HEAD,OPTIONS,POST,PUT");
             res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
             next();
