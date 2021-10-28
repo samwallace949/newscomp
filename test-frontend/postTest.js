@@ -20,8 +20,39 @@ export function makeQuery(s){
   };
   console.log("Query String: " + s);
   axios(req)
-  .then((response)=>
-    document.getElementById("results").innerText = "Result:\n" + JSON.stringify(response)
+  .then((response)=>{
+
+
+      //display them prettily
+      // for (let i = 0; i < response.data.URLList.length; i++){
+      //   document.getElementById("results").innerText += response.data.URLList[i] + "\n";
+      // }
+
+      //display them in JSON format
+      document.getElementById("results").innerText = JSON.stringify(response.data.topk);
+
+    }
+  )
+  .catch((error)=>
+    document.getElementById("results").innerText ="Error:\n" + JSON.stringify(error.response)
+  );
+}
+
+export function contextualizeTerms(t){
+  let req = {
+    method: 'post',
+    headers:{"Accept":"application/json","Content-Type": "application/json"},
+    url: 'http://localhost:5000/queries/contextualized',
+    data: {terms: t}
+  };
+
+  axios(req)
+  .then((response)=>{
+
+
+      document.getElementById("in-context").innerText = JSON.stringify(response.data.examples);
+
+    }
   )
   .catch((error)=>
     document.getElementById("results").innerText ="Error:\n" + JSON.stringify(error.response)

@@ -4,8 +4,12 @@
 	"private": true,
 	"dependencies": {
 		"express": "latest",
+		"jsdom": "latest",
 		"mongoose": "latest",
-		"newsapi": "latest"
+		"newsapi": "latest",
+		"puppeteer": "latest",
+		"puppeteer-cluster": "latest",
+		"stopword": "latest"
 	},
 	"scripts": {
 		"start": "node expressTests.js"

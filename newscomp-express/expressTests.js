@@ -1,13 +1,19 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("path");
-const secrets = require("./secrets.js");
 const NewsAPI = require("newsapi");
+const secrets = require("./secrets.js");
 const newsapi = new NewsAPI(secrets.napikey);
+
+const ScrapeCluster = require("./clusterUtil.js");
+const Cleaner = require("./cleanArticleUtil.js");
+
+let currRawQueryData = {};
+let currFilteredQueryData = {};
 
 let articleSchema = mongoose.Schema({"URL":String, "Body": String, "Ignorable": Boolean});
 let articleModel = mongoose.model("articles", articleSchema);
-let querySchema = mongoose.Schema({"Query":String, "URLList": [String], "Date":Date});
+let querySchema = mongoose.Schema({"Query":String, "URLList": [String], "textSample":String, "Date":Date});
 let queryModel = mongoose.model("queries", querySchema);
 
 let articleRoutes = express.Router();
@@ -25,6 +31,7 @@ articleRoutes.post("/", async(req,res)=>{
     let post = await doc.save();
     res.send(post);
 });
+
 
 queryRoutes.post("/", async(req,res)=>{
 
@@ -46,22 +53,61 @@ queryRoutes.post("/", async(req,res)=>{
 
         nextPage.forEach(element => {
             urls.push(element);
+
         });
 
         pageNum++;
 
+        //for testing, limit query response to 30 articles
+        if(urls.length >= 30){
+            urls = urls.slice(0,30);
+            break;
+        }
+
     }while(nextPage.length > 0)
 
-
-    console.log(urls);
+    
     //save to mongoDB
-    let doc = new queryModel({"Query":req.body.Query, "URLList":urls, "Date": null});
+    let doc = new queryModel({"Query":req.body.Query, "URLList":urls, "textSample":"", "Date": null});
     let post = await doc.save();
-    res.send(post);
+
+    //scrape raw text from articles, save them to local variable.
+    currRawQueryData = await ScrapeCluster.consumeArticles(urls).then(res =>{
+        return res;
+    }).catch(err =>{
+        console.log(err);
+        return {};
+    });
+
+    currFilteredQueryData = Cleaner.filterTokens(currRawQueryData);
+    let top5 = Cleaner.topKTerms(currFilteredQueryData,5);
+
+    //send back mongo response 
+    // res.send(post);
 
     //or not
-    // res.send({q:req.body.Query, URLS:urls});
+    res.send({"Query":req.body.Query, "URLList":urls, "topk":top5});
 });
+
+queryRoutes.post("/contextualized", async(req,res)=>{
+
+    let terms = [];
+    let examples = [];
+
+    //convert each query term to lower case
+    req.body.terms.forEach((term) => terms.push(term.toLowerCase()));
+
+    //generate examples from persisting data and cleaner module function
+    examples = terms.map((t) => Cleaner.examplesInContext(t, currFilteredQueryData, currRawQueryData, 5));
+
+    //send the response
+    res.send({"terms":terms, "examples": examples});
+
+
+
+});
+
+
 
 let connection = "mongodb+srv://" 
     + secrets.username 
