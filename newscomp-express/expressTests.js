@@ -13,11 +13,33 @@ let currFilteredQueryData = {};
 
 let articleSchema = mongoose.Schema({"URL":String, "Body": String, "Ignorable": Boolean});
 let articleModel = mongoose.model("articles", articleSchema);
-let querySchema = mongoose.Schema({"Query":String, "URLList": [String], "textSample":String, "Date":Date});
+let querySchema = mongoose.Schema({"Query":String, "URLList": [String], "termIndex":mongoose.Schema.Types.Mixed, "DateTo":Date, "DateFrom":Date});
 let queryModel = mongoose.model("queries", querySchema);
 
 let articleRoutes = express.Router();
 let queryRoutes = express.Router();
+
+async function saveQueryResults(q){
+    let query = new queryModel(q);
+    await query.save();
+}
+async function loadAllQueries(){
+    let allQueries = await queryModel.find({})
+    .then((res) =>{
+        return res.map((doc) =>{
+            return {Query: doc.Query, id: doc._id};
+        });
+    }).catch(err => {
+        console.log(err);
+        return [];
+    });
+
+    return allQueries;
+}
+async function loadQueryResults(q){
+    return await queryModel.findById(q.id);
+}
+
 
 articleRoutes.get("/", async(req,res)=>{
     let query = {}
@@ -129,7 +151,7 @@ mongoose.connect(connection)
         app.use(express.json());
         app.use("/articles", articleRoutes);
         app.use("/queries", queryRoutes);
-        app.listen(5000, ()=>console.log("New Connection"));
+        app.listen(process.env.PORT || 5000, ()=>console.log("New Connection"));
     });
 
 console.log("Server Started!");

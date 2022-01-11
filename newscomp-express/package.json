@@ -7,6 +7,7 @@
 		"jsdom": "latest",
 		"mongoose": "latest",
 		"newsapi": "latest",
+		"porter-stemmer": "latest",
 		"puppeteer": "latest",
 		"puppeteer-cluster": "latest",
 		"stopword": "latest"

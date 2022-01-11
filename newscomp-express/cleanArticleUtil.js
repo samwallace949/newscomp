@@ -1,5 +1,5 @@
 const sw = require('stopword');
-
+const {stemmer} = require("porter-stemmer");
 
 
 let len = (arr) => arr.length;
@@ -26,7 +26,7 @@ module.exports.filterTokens = function(obj){
 
     console.log("Total number of tokens in dict before filtering:", countTokens(obj));
 
-    let trigger = 0;
+    
     let paragraph = "";
     let token = "";
     let tokenDict = {};
@@ -45,7 +45,7 @@ module.exports.filterTokens = function(obj){
 
             paragraph = obj[i][p];
 
-            //split paragraph into non-stopword tokens
+            //split paragraph into stemmed, non-stopword tokens
             tokens = sw.removeStopwords(paragraph.split(/\W+/));
 
             //if pragraph longer than 8 tokens (naive check for inclusion in the article)
@@ -62,11 +62,11 @@ module.exports.filterTokens = function(obj){
                     if(token.length < 2) continue;
 
                     //add to vocab set
-                    fullVocab.add(token);
+                    fullVocab.add(stemmer(token));
 
                     //increment token dictionary value
-                    if(token in tokenDict[i])tokenDict[i][token].push(p);
-                    else tokenDict[i][token] = [p];
+                    if(stemmer(token) in tokenDict[i])tokenDict[i][stemmer(token)].push(p);
+                    else tokenDict[i][stemmer(token)] = [p];
 
                 }
             }
