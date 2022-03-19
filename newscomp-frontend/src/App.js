@@ -1,13 +1,14 @@
 import logo from './logo.svg';
 import styles from './App.css';
-import Filter from "./filter-window/filter.js";
-import Split from "./split-window/split.js";
+import TopLevelSearch from "./TopLevelSearch.js";
+
+import 'bootstrap/dist/css/bootstrap.min.css';
 
 function App() {
   return (
     <div>
      <script src="./node_modules/axios/dist/axios.min.js"></script>
-     <Filter />
+     <TopLevelSearch isTopLevel ={true}/>
      {/* <Split className="Split"/> */}
     </div>
   );

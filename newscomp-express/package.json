@@ -6,13 +6,18 @@
 		"express": "latest",
 		"jsdom": "latest",
 		"mongoose": "latest",
+		"murmurhash": "^2.0.0",
 		"newsapi": "latest",
+		"object-hash": "^2.2.0",
 		"porter-stemmer": "latest",
 		"puppeteer": "latest",
 		"puppeteer-cluster": "latest",
 		"stopword": "latest"
 	},
+	"devDependencies": {
+		"nodemon": "^2.0.15"
+	},
 	"scripts": {
-		"start": "node expressTests.js"
+		"start": "nodemon expressTests.js"
 	}
 }

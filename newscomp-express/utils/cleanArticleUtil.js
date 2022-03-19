@@ -1,9 +1,5 @@
-const fs = require('fs');
 const sw = require('stopword');
-
-
-const inputJSON = JSON.parse(fs.readFileSync("tokenSample.json"));
-
+const {stemmer} = require("porter-stemmer");
 
 
 let len = (arr) => arr.length;
@@ -24,18 +20,19 @@ let countElements = (obj) => reduceDict(obj, len);
 
 let countTokens = (obj) => reduceDict(obj, numTokens);
 
-function filterTokens(obj){
+module.exports.filterTokens = function(obj){
 
     console.log("Total number of elements in dict before filtering:", countElements(obj));
 
     console.log("Total number of tokens in dict before filtering:", countTokens(obj));
 
-    let trigger = 0;
+    
     let paragraph = "";
     let token = "";
     let tokenDict = {};
     let out = {};
     let fullVocab = new Set();
+    let unstemmed = {};
 
     //for each webpage's list of paragraphs
     for(let i in obj){
@@ -49,7 +46,7 @@ function filterTokens(obj){
 
             paragraph = obj[i][p];
 
-            //split paragraph into non-stopword tokens
+            //split paragraph into stemmed, non-stopword tokens
             tokens = sw.removeStopwords(paragraph.split(/\W+/));
 
             //if pragraph longer than 8 tokens (naive check for inclusion in the article)
@@ -66,11 +63,13 @@ function filterTokens(obj){
                     if(token.length < 2) continue;
 
                     //add to vocab set
-                    fullVocab.add(token);
+                    fullVocab.add(stemmer(token));
+
+                    if (!unstemmed[stemmer(token)]) unstemmed[stemmer(token)] = token;
 
                     //increment token dictionary value
-                    if(token in tokenDict[i])tokenDict[i][token].push(p);
-                    else tokenDict[i][token] = [p];
+                    if(stemmer(token) in tokenDict[i])tokenDict[i][stemmer(token)].push(p);
+                    else tokenDict[i][stemmer(token)] = [p];
 
                 }
             }
@@ -82,24 +81,23 @@ function filterTokens(obj){
 
     console.log("Total number of tokens in dict after filtering:", countTokens(out));
 
-    return {"tokenized":tokenDict, "paragraphs":out, "vocabSet":fullVocab};
+    return {"tokenized":tokenDict, "paragraphs":out, "vocabSet":Array.from(fullVocab), unstemmed};
 }
 
 //takes in tokenized corpus, finds top k terms, returns the terms and examples of each of them based on document weighing
-function topKTerms(tokenizedCorpus, k){
+module.exports.topKTerms = function(tokenizedCorpus, k){
     terms = {};
 
     //populate the terms object
     tokenizedCorpus.vocabSet.forEach((term)=>{
 
-
         //set key
-        terms[term] = 0;
+        terms[tokenizedCorpus.unstemmed[term]] = 0;
 
         //populate value
         for(doc in tokenizedCorpus.tokenized){
             if(term in tokenizedCorpus.tokenized[doc]){
-                terms[term] += tokenizedCorpus.tokenized[doc][term].length;
+                terms[tokenizedCorpus.unstemmed[term]] += tokenizedCorpus.tokenized[doc][term].length;
             }
         }
 
@@ -113,7 +111,7 @@ function topKTerms(tokenizedCorpus, k){
     return topFreq;
 }
 
-function examplesInContext(term, tokenizedCorpus, rawCorpus, n_examples){
+module.exports.examplesInContext = function(term, tokenizedCorpus, rawCorpus, n_examples){
     if(!term in tokenizedCorpus.vocabSet)return [];
 
     let out = [];
@@ -134,9 +132,3 @@ function examplesInContext(term, tokenizedCorpus, rawCorpus, n_examples){
     return out;
 
 }
-
-let filtered = filterTokens(inputJSON);
-
-console.log(topKTerms(filtered, 20));
-
-console.log(examplesInContext("risk", filtered, inputJSON, 5));

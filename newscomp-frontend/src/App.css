@@ -28,12 +28,21 @@
   color: #61dafb;
 }
 
+.tab{
+  display: inline-block;
+  margin-left: 40px;
+}
+
 .termContent{
   width: 0px;
   text-align: center;
   
 }
-.left{
+.TermTitle{
+  margin:0px 0px 0px 21%;
+}
+
+.TopTermText{
   margin: auto auto auto 20%;
 }
 
@@ -46,6 +55,7 @@
   width: 100%;
   grid-template-columns: 50% 50%;
   margin-bottom: 10px;
+  margin-left: 1%;
 }
 
 .TopTerm{
@@ -81,26 +91,31 @@
   width:98%;
   height:auto;
   border-color: darkgray;
-  background-color: lightgray;
+  background-color: whitesmoke;
   margin: 1% 1% 1% 1%;
 }
 
 .search-bar{
   height:30px;
-  width:50%;
+  width:40%;
   
 }
+
+.search-checkbox{
+  margin:1% 0% 0% 1%;
+}
+
 .query-bar{
   margin: 1% 0% 0% 1%;
 }
 .context-bar{
-  margin: 2% 0% 0% 20%;
+  margin: 2% 0% 0% 5%;
 }
 
 .searchButton{
   height:33px;
-  width:60px;
-  margin: 1% 0% 0% 1%;
+  width:80px;
+  margin: 1% 0% 1% 1%;
   background-color:lightcoral;
   border-color: white;
   color:black;
