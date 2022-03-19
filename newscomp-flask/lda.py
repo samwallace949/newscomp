@@ -4,7 +4,7 @@ from gensim import corpora
 import re
 from gensim.models import LdaModel
 
-nlp = spacy.load("en_core_web_lg")
+nlp = spacy.load("en_core_web_sm")
 
 #given queryData, computes lda topics and topic probabilities for each document
 def compute(state):
