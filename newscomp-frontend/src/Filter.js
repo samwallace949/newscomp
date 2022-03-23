@@ -13,6 +13,7 @@ import Table from "react-bootstrap/Table";
 import PublisherFilterInput from "./PublisherFilterInput";
 import TopicFilterInput from "./TopicFilterInput";
 import TFFilterInput from "./TFFilterInput";
+import EntityFilterInput from "./EntityFilterInput";
 import FilterCard from "./FilterCard";
 import { Button } from "react-bootstrap";
 
@@ -119,6 +120,8 @@ function Filter(props){
                         <TopicFilterInput handleFilterSubmit={appendToFilterList} topicNames={filterMetricOptions.options}/>
                     ) || ( filterMetric === "tf" &&
                         <TFFilterInput handleFilterSubmit={appendToFilterList}/>
+                    ) || ( filterMetric === "ner" &&
+                        <EntityFilterInput handleFilterSubmit={appendToFilterList} entities={filterMetricOptions.options}/>
                     )
                 }
                 {filterList.length > 0 && 

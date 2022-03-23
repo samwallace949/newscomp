@@ -5,12 +5,13 @@ import json
 import lda
 import tf
 import pub
+import ner
 
 
 #global constants
 SAVE_TO_JSON = False
-FEATURE_NAMES = ["lda", "tf", "pub"]
-FEATURE_MODULES = [lda, tf, pub]
+FEATURE_NAMES = ["lda", "tf", "pub", "ner"]
+FEATURE_MODULES = [lda, tf, pub, ner]
 
 #global variable for storing the current query data, used to
 #uodate frontend as well as provide models with text
@@ -82,6 +83,8 @@ def get_options(feature):
         return lda.options(state['queryData'])
     elif feature == 'pub':
         return pub.options(state['queryData'])
+    elif feature == 'ner':
+        return ner.options(state['queryData'])
     return ["Backend Has No options for {}".format(feature)]
 
 
@@ -103,6 +106,8 @@ def make_filter(flist):
             is_valid = tf.filter(state['queryData'], f['term'], f['count'])
         elif f['name'] == "pub":
             is_valid = pub.filter(state['queryData'], f['publisher'])
+        elif f['name'] == "ner":
+            is_valid = ner.filter(state['queryData'], f['entity'], f['count'])
         
         url_map = [url_map[i] and val for i, val in enumerate(is_valid)]
     
@@ -125,44 +130,21 @@ def get_topk(fid, feature):
     else:
         valid_docs = list(state['queryData']['raw'].keys())
 
-    if feature == 'lda':
+    feature_mod = FEATURE_MODULES[FEATURE_NAMES.index(feature)]
 
-        if fid not in state['topk']:
-            state['topk'][fid] = dict({})
-            
-        if feature in state['topk'][fid]:
-            print("Returned cached topk value for lda")
-            topk = state['topk'][fid][feature]
-        else:
-            topk = lda.topk(state['queryData'], valid_docs)
-            state['topk'][fid]['lda'] = topk
+    if fid not in state['topk']:
+        state['topk'][fid] = dict({})
 
-    elif feature == 'tf':
-        if fid not in state['topk']:
-            state['topk'][fid] = dict({})
-            
-        if feature in state['topk'][fid]:
-            print("Returned cached topk value for tf")
-            topk = state['topk'][fid][feature]
-        else:
-            topk = tf.topk(state['queryData'], valid_docs)
-            state['topk'][fid]['tf'] = topk
+    if feature in state['topk'][fid]:
+        print("Returned cached topk value for " + feature)
+        topk = state['topk'][fid][feature]
+    else:
+        topk = feature_mod.topk(state['queryData'], valid_docs)
+        state['topk'][fid][feature] = topk
 
-    elif feature == 'pub':
-        if fid not in state['topk']:
-            state['topk'][fid] = dict({})
-            
-        if feature in state['topk'][fid]:
-            print("Returned cached topk value for publisher")
-            topk = state['topk'][fid][feature]
-        else:
-            topk = pub.topk(state['queryData'], valid_docs)
-            state['topk'][fid]['pub'] = topk
-    
     return topk
 
 def get_current_article_data(data):
-
 
 
     return state['queryData']

@@ -16,7 +16,8 @@ function TopLevelSearch(props){
     const [sortMetricNames, changeSortMetricNames] = useState({
         "tf":"Term Frequency",
         "lda": "Topic",
-        "pub": "Publisher"
+        "pub": "Publisher",
+        "ner": "Named Entities"
     });
 
     async function query(e){
