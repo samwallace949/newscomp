@@ -1,6 +1,7 @@
 #no computation needed, doc -> publisher map saved in state['queryData']['metadata']
+#return fase to signal that no features were generated, so state does not need to be saved to db
 def compute(state):
-    pass
+    return False
 
 #get list of distinct publishers 
 def options(state):

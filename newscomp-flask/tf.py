@@ -1,7 +1,8 @@
 #can pass this, since inverted index is constructed by node service and we can compile doc-specific tf values easily at filter or topk time
+#returns false to not resave unchanged state to db
 def compute(state):
 
-    pass
+    return False
 
 #we do not need discrete options specified for this metric
 def options(state):

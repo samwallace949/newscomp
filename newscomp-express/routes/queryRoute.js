@@ -127,6 +127,8 @@ queryRoutes.post("/", async(req,res)=>{
 
 queryRoutes.get("/test-data/read", async(req,res) =>{
 
+    console.log("Reading the test data...");
+
     try{
         const testData = await queryModel.findOne({"isTest": true}).exec();
 
@@ -139,5 +141,14 @@ queryRoutes.get("/test-data/read", async(req,res) =>{
     }catch (error){
         respondWithError(req.body.Query, res, "Node Reading Test Data Error: " + error);
     }
+
+});
+
+queryRoutes.post("/test-data/write", async(req,res) =>{
+
+    console.log("Wrting new test data...");
+
+    res.send(await queryModel.findOneAndUpdate({"isTest": true}, req.body).exec());
+
 
 });

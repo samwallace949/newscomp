@@ -11,6 +11,15 @@ mention_detection = MentionDetection(base_url, wiki_version)
 tagger_ner = load_flair_ner("ner-fast")
 
 def compute(state):
+
+    print("computing named entities...")
+
+    if 'entities' in state:
+
+        print("Entities already computed, using cached features")
+
+        return False
+
     urls = list(state['raw'].keys())
     
     entity_index = dict({})
@@ -42,6 +51,8 @@ def compute(state):
             entity_index[pred][url] += 1
      
     state['entities'] = entity_index
+
+    return True
 
 def options(state):
 

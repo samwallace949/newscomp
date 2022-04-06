@@ -9,7 +9,7 @@ import ner
 
 
 #global constants
-SAVE_TO_JSON = False
+SAVE_TO_JSON = True
 FEATURE_NAMES = ["lda", "tf", "pub", "ner"]
 FEATURE_MODULES = [lda, tf, pub, ner]
 
@@ -44,6 +44,7 @@ def calc_metrics(filtered, k=10, return_tfidf = True):
 
     return tfidfs if return_tfidf else tfs
 
+#updates the state given the text data from a query, returns True if new data was generated and stored
 def update_current_article_data(data):
 
     global state
@@ -57,18 +58,20 @@ def update_current_article_data(data):
     state['filters'] = dict()
     state['nextFilterId'] = 0
 
-    #calculate and save sorting metrics
-    try:
+    #calculate and save sorting metrics if not precomputed
+    metrics_generated = False
+    # try:
 
-        for feature in FEATURE_MODULES:
-            feature.compute(state['queryData'])
+    for i,feature in enumerate(FEATURE_MODULES):
+        print("Now calculating metric ", FEATURE_NAMES[i])
+        metrics_generated = feature.compute(state['queryData']) or metrics_generated
 
-        state['topk'] = dict({})
-        state['topk']['tfidf'] = calc_metrics(state['queryData']['filtered'], k=15, return_tfidf = True)
-        state['topk']['tf'] = calc_metrics(state['queryData']['filtered'], k=15, return_tfidf = False)
-    except Exception as e:
-        print("Failed To Calculate Metrics")
-        raise e
+    state['topk'] = dict({})
+    state['topk']['tfidf'] = calc_metrics(state['queryData']['filtered'], k=15, return_tfidf = True)
+    state['topk']['tf'] = calc_metrics(state['queryData']['filtered'], k=15, return_tfidf = False)
+    # except Exception as e:
+    #     print("Failed To Calculate Metrics")
+    #     raise e
 
     #save query data state to run notebooks on
     if SAVE_TO_JSON:
@@ -76,6 +79,8 @@ def update_current_article_data(data):
             state['queryData']['filtered']['vocabSet'] = list(state['queryData']['filtered']['vocabSet'])
             json.dump(state, wfile)
             state['queryData']['filtered']['vocabSet'] = set(state['queryData']['filtered']['vocabSet'])
+
+    return metrics_generated
 
 def get_options(feature):
 
@@ -144,10 +149,8 @@ def get_topk(fid, feature):
 
     return topk
 
-def get_current_article_data(data):
-
-
-    return state['queryData']
+def get_current_article_data():
+    return state
 
 #function returning sentences containing the selected keyword
 def get_term_contexts(term, n_examples):

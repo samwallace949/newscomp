@@ -9,6 +9,12 @@ nlp = spacy.load("en_core_web_sm")
 #given queryData, computes lda topics and topic probabilities for each document
 def compute(state):
 
+    if 'topics' in state and 'lda' in state:
+
+        print("Topics already computed, using cached features")
+
+        return False
+
     token_lists = get_lemmatized_tokens(state,nlp)
     topic_terms, doc_probs = lda_k_topics(token_lists)
 
@@ -17,9 +23,13 @@ def compute(state):
     state['lda'] = dict({}) # empty the state's lda object
 
     for i, url in enumerate(urls):
-        state['lda'][url] = dict(doc_probs[i])
+
+        #cast float32 to python float, save doc probs as dicts in state
+        state['lda'][url] = dict([ (entry[0], float(str(entry[1]))) for entry in doc_probs[i]])
     
     state['topics'] = topic_terms
+
+    return True
     
 def options(state):
     if state['topics'] is not None:
