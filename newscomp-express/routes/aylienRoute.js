@@ -5,18 +5,14 @@ const MAX_ARTICLES = 100;
 //Other Files
 const ScrapeCluster = require("../utils/clusterUtil.js");
 const Cleaner = require("../utils/cleanArticleUtil.js");
-const secrets = require("../secrets.js");
 const {querySchema, queryModel} = require("../schemas/querySchema.js");
 
 //Libraries
-const {readFileSync} = require("fs");
 const {Router} = require("express");
-const NewsAPI = require("newsapi");
-const newsapi = new NewsAPI(secrets.napikey);
 
-const queryRoutes = Router();
+const aylienRoutes = Router();
 
-module.exports.addQueryRoute = function (app){
+module.exports.addAylienRoute = function (app){
     app.use("/queries", queryRoutes);
 }
 
@@ -35,35 +31,6 @@ function respondWithError(q, res,err){
 
 
     res.send(responseObject);
-}
-
-//filter, save article data, return res object
-async function processAndSaveQueryData(rawQueryData, urlMetadataMap, isTest, isAylien){
-    //tokenize and filter raw text
-    const queryData = {raw: rawQueryData, filtered: Cleaner.filterTokens(rawQueryData), metadata: urlMetadataMap};
-
-    //construct response object for this query
-    const responseObject = {
-        "query":req.body.Query,
-        "urls":urls, 
-        "dateTo": null,
-        "dateFrom": null, 
-        "queryData": queryData,
-        "topk": Cleaner.topKTerms(queryData.filtered, 8),
-        "isTest": isTest,
-        "isAylien": isAylien,
-        "success": true
-    };
-
-    //save to mongoDB as new document
-    let doc = new queryModel(responseObject);
-
-    if (isTest) await queryModel.deleteMany({isTest:true});
-    if (isAylien) await queryModel.deleteMany({isAylien:true});
-
-    await doc.save();
-
-    return responseObject;
 }
 
 queryRoutes.post("/", async(req,res)=>{
@@ -119,16 +86,39 @@ queryRoutes.post("/", async(req,res)=>{
             return {};
         });
 
-        const responseObject = await processAndSaveQueryData(rawQueryData, urlMetadataMap, req.body.isTest, false);
+        //tokenize and filter raw text
+        const queryData = {raw: rawQueryData, filtered: Cleaner.filterTokens(rawQueryData), metadata: urlMetadataMap};
 
-        res.status(200).send(responseObject);
+        //construct response object for this query
+        const responseObject = {
+            "query":req.body.Query,
+            "urls":urls, 
+            "dateTo": null,
+            "dateFrom": null, 
+            "queryData": queryData,
+            "topk": Cleaner.topKTerms(queryData.filtered, 8),
+            "isTest": req.body.isTest,
+            "success": true
+        };
+
+        //save to mongoDB as new document
+        let doc = new queryModel(responseObject);
+
+        if (req.body.isTest){
+
+            await queryModel.deleteMany({isTest:true});
+
+        }
+
+        await doc.save();
+
+        res.send(responseObject);
 
     }catch (error){
 
         respondWithError(req.body.Query, res, "Article Scraping Result Error in Node: " + error);
-    
-    }
 
+    }
 });
 
 
@@ -156,43 +146,6 @@ queryRoutes.post("/test-data/write", async(req,res) =>{
     console.log("Wrting new test data...");
 
     res.send(await queryModel.findOneAndUpdate({"isTest": true}, req.body).exec());
-
-
-});
-
-//retrieve aylien data either from DB, or retrieve locally and push to DB
-queryRoutes.get("/aylien/read", async(req,res) =>{
-
-    try{
-        const testData = await queryModel.findOne({"isAylien": true}).exec();
-        if (testData){
-            res.status(200).send(testData);
-        }else{
-            console.log("Database does not contain the aylien data. Loading Locally and adding to DB...")
-
-            const aylienData = fs.readFileSync("../../aylien_corpus/aylien_articles.json");
-            if(!aylienData)throw "No aylien data found on DB or Locally.";
-
-            const responseObject = await processAndSaveQueryData(aylienData["raw"], aylienData["metadata"], false, true);
-
-            res.status(200).send(responseObject);
-        }
-
-    }catch (error){
-        respondWithError("", res, "Node Reading Test Data Error: " + error);
-    }
-    
-});
-
-queryRoutes.post("/aylien/write", async(req,res) =>{
-
-    console.log("Wrting new test data...");
-
-    await queryModel.deleteMany({isAylien:true});
-
-    
-
-    res.send(await queryModel.findOneAndUpdate({"isAylien": true}, req.body).exec());
 
 
 });

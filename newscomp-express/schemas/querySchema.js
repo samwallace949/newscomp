@@ -9,6 +9,7 @@ module.exports.querySchema = mongoose.Schema({
     "dateTo":Date,
     "dateFrom":Date,
     "topk": mongoose.Schema.Types.Mixed,
-    "isTest":Boolean
+    "isTest":Boolean,
+    "isAylien":Boolean
 });
 module.exports.queryModel = mongoose.model("queries", module.exports.querySchema);

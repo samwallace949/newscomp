@@ -53,6 +53,26 @@ def loadTestData():
 
     return jsonify(get_query_and_topk())
 
+@app.route("/queries/aylien/read", methods = ["GET"])
+def loadAylienData():
+
+    result = requests.get("http://localhost:8080/queries/aylien/read").json()
+
+    #update the current state, and if metrics are generated, save the resulting metrics back to DB
+    if update_current_article_data(result):
+
+        status = requests.post("http://localhost:8080/queries/aylien/write", data=get_current_article_data())
+
+        print("Resaved test data: ", status)
+
+    print("Result Keys: ")
+    for key in list(result.keys()):
+        print(key)
+
+    return jsonify(get_query_and_topk())
+
+
+
 
 #passthrough to node
 #TODO: migrate indexing logic to python
