@@ -38,6 +38,18 @@ export async function getTestData(){
 
 }
 
+export async function getOfflineData(){
+  const req = {
+    method: 'get',
+    headers:{"Accept":"application/json","Content-Type": "application/json"},
+    url: `http://localhost:3000/queries/aylien/read`
+  };
+
+  return await getQueryAndTopK(req);
+
+}
+
+
 
 export async function contextualizeTerms(t){
   let req = {

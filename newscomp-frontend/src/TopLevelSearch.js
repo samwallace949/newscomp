@@ -2,7 +2,7 @@ import { useState } from "react";
 import Filter from "./Filter";
 
 
-const {makeQuery, getTestData} = require("./apiCalls.js");
+const {makeQuery, getTestData, getOfflineData} = require("./apiCalls.js");
 
 
 
@@ -12,6 +12,7 @@ function TopLevelSearch(props){
     const [searchQuery, changeQuery] = useState("");
     const [isTestData, changeIsTestData] = useState(false);
     const [isLoadingTestData, changeIsLoadingTestData] = useState(false);
+    const [isLoadingOfflineData, changeIsLoadingOfflineData] = useState(false);
     const [initFilterMetrics, changeInitFilterMetrics] = useState(null);
     const [sortMetricNames, changeSortMetricNames] = useState({
         "tf":"Term Frequency",
@@ -24,7 +25,7 @@ function TopLevelSearch(props){
 
         e.preventDefault();
 
-        const dataloader = isLoadingTestData ? getTestData : () => makeQuery(searchQuery, isTestData);
+        const dataloader = isLoadingOfflineData ? getOfflineData : (isLoadingTestData ? getTestData : () => makeQuery(searchQuery, isTestData));
 
         await dataloader().then((res) => {
 
@@ -46,6 +47,7 @@ function TopLevelSearch(props){
 
     const isTestDataListener = () => changeIsTestData(!isTestData);
     const isLoadingTestDataListener = () => changeIsLoadingTestData(!isLoadingTestData);
+    const isLoadingOfflineDataListener = () => changeIsLoadingOfflineData(!isLoadingOfflineData);
 
     function trackSearch(e){
         changeQuery(e.target.value);
@@ -64,6 +66,9 @@ function TopLevelSearch(props){
                 <br></br>
                 <input type="checkbox" id="load-data" className="search-checkbox" defaultChecked={isLoadingTestData} onChange={isLoadingTestDataListener}></input>
                 <label for="load-data">Load the Test Data</label>
+                <br></br>
+                <input type="checkbox" id="load-data" className="search-checkbox" defaultChecked={isLoadingOfflineData} onChange={isLoadingOfflineDataListener}></input>
+                <label for="load-data">Load the Offline Data</label>
                 <br></br>
                 <button className="searchButton border">Search!</button>
             </form>)
