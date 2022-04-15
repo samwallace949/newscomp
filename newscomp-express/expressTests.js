@@ -5,7 +5,6 @@ const mongoose = require("mongoose");
 //Other Files
 const secrets = require("./secrets.js");
 const {addQueryRoute} = require("./routes/queryRoute");
-const {addAylienRoute} = require("./routes/aylienRoute");
 
 //Construct DB URI
 let connection = "mongodb+srv://" 

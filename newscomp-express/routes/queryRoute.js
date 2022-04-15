@@ -1,6 +1,7 @@
 
 //Constants
 const MAX_ARTICLES = 100;
+const OFFLINE_DATA = "../../aylien_corpus/aylien_articles.json";
 
 //Other Files
 const ScrapeCluster = require("../utils/clusterUtil.js");
@@ -9,7 +10,7 @@ const secrets = require("../secrets.js");
 const {querySchema, queryModel} = require("../schemas/querySchema.js");
 
 //Libraries
-const {readFileSync} = require("fs");
+const {readFileSync, writeFileSync} = require("fs");
 const {Router} = require("express");
 const NewsAPI = require("newsapi");
 const newsapi = new NewsAPI(secrets.napikey);
@@ -38,14 +39,14 @@ function respondWithError(q, res,err){
 }
 
 //filter, save article data, return res object
-async function processAndSaveQueryData(rawQueryData, urlMetadataMap, isTest, isAylien){
+async function processQueryData(query, rawQueryData, urlMetadataMap, isTest, isAylien){
     //tokenize and filter raw text
     const queryData = {raw: rawQueryData, filtered: Cleaner.filterTokens(rawQueryData), metadata: urlMetadataMap};
 
     //construct response object for this query
     const responseObject = {
-        "query":req.body.Query,
-        "urls":urls, 
+        "query":query,
+        "urls":Object.keys(urlMetadataMap), 
         "dateTo": null,
         "dateFrom": null, 
         "queryData": queryData,
@@ -54,14 +55,6 @@ async function processAndSaveQueryData(rawQueryData, urlMetadataMap, isTest, isA
         "isAylien": isAylien,
         "success": true
     };
-
-    //save to mongoDB as new document
-    let doc = new queryModel(responseObject);
-
-    if (isTest) await queryModel.deleteMany({isTest:true});
-    if (isAylien) await queryModel.deleteMany({isAylien:true});
-
-    await doc.save();
 
     return responseObject;
 }
@@ -119,7 +112,14 @@ queryRoutes.post("/", async(req,res)=>{
             return {};
         });
 
-        const responseObject = await processAndSaveQueryData(rawQueryData, urlMetadataMap, req.body.isTest, false);
+        const responseObject = await processQueryData(req.body.query, rawQueryData, urlMetadataMap, req.body.isTest, false);
+
+        //save to mongoDB as new document
+        let doc = new queryModel(responseObject);
+
+        if (req.body.isTest) await queryModel.deleteMany({isTest:true});
+
+        await doc.save();
 
         res.status(200).send(responseObject);
 
@@ -163,23 +163,23 @@ queryRoutes.post("/test-data/write", async(req,res) =>{
 //retrieve aylien data either from DB, or retrieve locally and push to DB
 queryRoutes.get("/aylien/read", async(req,res) =>{
 
-    try{
-        const testData = await queryModel.findOne({"isAylien": true}).exec();
-        if (testData){
-            res.status(200).send(testData);
-        }else{
-            console.log("Database does not contain the aylien data. Loading Locally and adding to DB...")
+    const testData = await queryModel.findOne({"isAylien": true}).exec();
 
-            const aylienData = fs.readFileSync("../../aylien_corpus/aylien_articles.json");
-            if(!aylienData)throw "No aylien data found on DB or Locally.";
+    if (testData){
+        res.status(200).send(testData);
+    }else{
+        console.log("Database does not contain the aylien data. Loading Locally and adding to DB...")
 
-            const responseObject = await processAndSaveQueryData(aylienData["raw"], aylienData["metadata"], false, true);
+        const aylienData = JSON.parse(readFileSync(OFFLINE_DATA));
+        if(!aylienData)throw "No aylien data found on DB or Locally.";
+        
+        console.log(`Aylien data Loaded. Keys of data: ${Object.keys(aylienData)} totalling ${Object.keys(aylienData).length}`);
 
-            res.status(200).send(responseObject);
-        }
 
-    }catch (error){
-        respondWithError("", res, "Node Reading Test Data Error: " + error);
+        //process offline data if it hasnt been already
+        const responseObject = ("raw" in aylienData) ? await processQueryData("", aylienData["raw"], aylienData["metadata"], false, true) : aylienData;
+
+        res.status(200).send(responseObject);
     }
     
 });
@@ -188,11 +188,14 @@ queryRoutes.post("/aylien/write", async(req,res) =>{
 
     console.log("Wrting new test data...");
 
-    await queryModel.deleteMany({isAylien:true});
+    // await queryModel.deleteMany({isAylien:true});
 
-    
+    // const doc = new queryModel(req.body);
 
-    res.send(await queryModel.findOneAndUpdate({"isAylien": true}, req.body).exec());
+    // res.send(await doc.save());
 
+    writeFileSync(OFFLINE_DATA, JSON.stringify(req.body));
+
+    res.send(req.body);
 
 });
