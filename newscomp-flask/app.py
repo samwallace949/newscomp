@@ -8,7 +8,7 @@ from metrics import *
 
 
 app = Flask(__name__)
-
+SAVE_OFFLINE_DATA = False
 
 @app.route("/")
 def hello_world():
@@ -43,7 +43,7 @@ def loadTestData():
     #update the current state, and if metrics are generated, save the resulting metrics back to DB
     if update_current_article_data(result):
 
-        status = requests.post("http://localhost:8080/queries/test-data/write", data=get_current_article_data())
+        status = requests.post("http://localhost:8080/queries/test-data/write", json=get_current_article_data()).json()
 
         print("Resaved test data: ", status)
 
@@ -59,9 +59,12 @@ def loadAylienData():
     result = requests.get("http://localhost:8080/queries/aylien/read").json()
 
     #update the current state, and if metrics are generated, save the resulting metrics back to DB
-    if update_current_article_data(result):
+    if update_current_article_data(result) and SAVE_OFFLINE_DATA:
 
-        status = requests.post("http://localhost:8080/queries/aylien/write", data=get_current_article_data())
+        post_fn = lambda a: requests.post("http://localhost:8080/queries/aylien/write", json=a).json()
+
+        #send JSON test data to node using the inline function above
+        status = use_state_in_json(post_fn)
 
         print("Resaved test data: ", status)
 

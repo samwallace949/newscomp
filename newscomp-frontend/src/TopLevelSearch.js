@@ -18,7 +18,8 @@ function TopLevelSearch(props){
         "tf":"Term Frequency",
         "lda": "Topic",
         "pub": "Publisher",
-        "ner": "Named Entities"
+        "ner": "Named Entities",
+        "mfc1": "Detected Frames"
     });
 
     async function query(e){

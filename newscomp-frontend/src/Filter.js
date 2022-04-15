@@ -14,6 +14,7 @@ import PublisherFilterInput from "./PublisherFilterInput";
 import TopicFilterInput from "./TopicFilterInput";
 import TFFilterInput from "./TFFilterInput";
 import EntityFilterInput from "./EntityFilterInput";
+import MFCFilterInput from "./MFCFilterInput";
 import FilterCard from "./FilterCard";
 import { Button } from "react-bootstrap";
 
@@ -122,6 +123,8 @@ function Filter(props){
                         <TFFilterInput handleFilterSubmit={appendToFilterList}/>
                     ) || ( filterMetric === "ner" &&
                         <EntityFilterInput handleFilterSubmit={appendToFilterList} entities={filterMetricOptions.options}/>
+                    ) || (filterMetric === "mfc1" &&
+                        <MFCFilterInput handleFilterSubmit={appendToFilterList} frameNames={filterMetricOptions.options}/>
                     )
                 }
                 {filterList.length > 0 && 

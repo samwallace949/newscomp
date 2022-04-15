@@ -4,14 +4,20 @@ import json
 
 import lda
 import tf
+import tfidf
 import pub
 import ner
+import mfcBertNoContext as mfc1
 
 
 #global constants
 SAVE_TO_JSON = True
-FEATURE_NAMES = ["lda", "tf", "pub", "ner"]
-FEATURE_MODULES = [lda, tf, pub, ner]
+# FEATURE_NAMES = ["lda", "tf", "pub", "ner"]
+# FEATURE_MODULES = [lda, tf, pub, ner]
+
+# no NER, too slow
+FEATURE_NAMES = ["lda", "tf", "pub", "mfc1"]
+FEATURE_MODULES = [lda, tf, pub, mfc1]
 
 #global variable for storing the current query data, used to
 #uodate frontend as well as provide models with text
@@ -90,6 +96,8 @@ def get_options(feature):
         return pub.options(state['queryData'])
     elif feature == 'ner':
         return ner.options(state['queryData'])
+    elif feature == 'mfc1':
+        return mfc1.options(state['queryData'])
     return ["Backend Has No options for {}".format(feature)]
 
 
@@ -113,6 +121,8 @@ def make_filter(flist):
             is_valid = pub.filter(state['queryData'], f['publisher'])
         elif f['name'] == "ner":
             is_valid = ner.filter(state['queryData'], f['entity'], f['count'])
+        elif f['name'] == "mfc1":
+            is_valid = mfc1.filter(state['queryData'], f['frame'])
         
         url_map = [url_map[i] and val for i, val in enumerate(is_valid)]
     
@@ -151,6 +161,18 @@ def get_topk(fid, feature):
 
 def get_current_article_data():
     return state
+
+
+#runs function handler with state as JSON-serializable dict
+def use_state_in_json(fn):
+    #run actions necessary to make state serializable
+    state['queryData']['filtered']['vocabSet'] = list(state['queryData']['filtered']['vocabSet'])
+    #run function handle
+    out = fn(state)
+    #undo serializing ops
+    state['queryData']['filtered']['vocabSet'] = list(state['queryData']['filtered']['vocabSet'])
+
+    return out
 
 #function returning sentences containing the selected keyword
 def get_term_contexts(term, n_examples):

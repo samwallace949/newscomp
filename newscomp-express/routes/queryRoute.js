@@ -194,6 +194,10 @@ queryRoutes.post("/aylien/write", async(req,res) =>{
 
     // res.send(await doc.save());
 
+    const datastring = JSON.stringify(req.body);
+
+    console.log(`new offline data size: ${datastring.length}`);
+
     writeFileSync(OFFLINE_DATA, JSON.stringify(req.body));
 
     res.send(req.body);

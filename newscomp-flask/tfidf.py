@@ -1,15 +1,19 @@
-def compute(articles, vocabulary):
+#can pass this, since inverted index is constructed by node service and we can compile doc-specific tf values easily at filter or topk time
+#returns false to not resave unchanged state to db
+def compute(state):
+
+    return False
+
+#we do not need discrete options specified for this metric
+def options(state):
+    
     pass
 
-def filter(docs, threshold):
-    pass
+#NO FILTER FNCTION FOR TF-IDF; CANNOT FILTER USING IT.
 
-def topk(docs):
-    pass
+def topk(state, docs, k=15):
 
-def calc_metrics(filtered, k=10, return_tfidf = True):
-
-    tfidfs = {}
+    filtered = state['filtered']
     tfs = {}
 
     for term in filtered['vocabSet']:
@@ -17,17 +21,14 @@ def calc_metrics(filtered, k=10, return_tfidf = True):
         tf = 0
         df = 1
 
-        for doc in filtered['tokenized']:
+        for doc in docs:
 
             if term in filtered['tokenized'][doc]:
                 df += 1
                 tf += len(filtered['tokenized'][doc][term])
 
-        tfidfs[term] = tf/df
-        tfs[term] = tf
+        tfs[term] = tf/df
 
-    tfidfs = sorted([ ( state['queryData']['filtered']['unstemmed'][tc[0]], tc[1] ) for tc in tfidfs.items()], reverse = True, key=lambda a: a[1])[:k]
+    tfs = sorted([ ( filtered['unstemmed'][tc[0]], tc[1] ) for tc in tfs.items()], reverse = True, key=lambda a: a[1])[:k]
 
-    tfs = sorted([ ( state['queryData']['filtered']['unstemmed'][tc[0]], tc[1] ) for tc in tfs.items()], reverse = True, key=lambda a: a[1])[:k]
-
-    return tfidfs if return_tfidf else tfs
+    return tfs
