@@ -10,8 +10,12 @@ import ner
 
 #global constants
 SAVE_TO_JSON = True
-FEATURE_NAMES = ["lda", "tf", "pub", "ner"]
-FEATURE_MODULES = [lda, tf, pub, ner]
+# FEATURE_NAMES = ["lda", "tf", "pub", "ner"]
+# FEATURE_MODULES = [lda, tf, pub, ner]
+
+#no entity recognition: takes too long
+FEATURE_NAMES = ["lda", "tf", "pub"]
+FEATURE_MODULES = [lda, tf, pub]
 
 #global variable for storing the current query data, used to
 #uodate frontend as well as provide models with text
