@@ -2,22 +2,34 @@ import math
 from datetime import date
 import json
 
+# import importlib
+
+# FEATURE_NAMES = None
+# with open("./loaded-modules.json", "r") as f:
+#     MODULE_NAMES = json.load(f)
+
+# FEATURE_MODULES = []
+# FEATURE_NAMES = []
+# for name in MODULE_NAMES:
+#     try:
+#         importlib.import_module(name)
+#     except Exception as e:
+#         print("Unbale to load module", name)
+#         print(e)
+#         continue
+#     FEATURE_NAMES.append(re.split("/", name)[-1][:-3])
+
 import lda
 import tf
 import tfidf
 import pub
 import ner
 import mfcBertNoContext as mfc1
-
-
-#global constants
-SAVE_TO_JSON = True
-# FEATURE_NAMES = ["lda", "tf", "pub", "ner"]
-# FEATURE_MODULES = [lda, tf, pub, ner]
+import mfcBertWithContext as mfc2
 
 # no NER, too slow
-FEATURE_NAMES = ["lda", "tf", "pub", "mfc1"]
-FEATURE_MODULES = [lda, tf, pub, mfc1]
+FEATURE_NAMES = ["lda", "tf", "tfidf", "pub", "ner", "mfc1"]
+FEATURE_MODULES = [lda, tf, tfidf, pub, ner, mfc1]
 
 #global variable for storing the current query data, used to
 #uodate frontend as well as provide models with text
@@ -50,8 +62,9 @@ def calc_metrics(filtered, k=10, return_tfidf = True):
 
     return tfidfs if return_tfidf else tfs
 
+
 #updates the state given the text data from a query, returns True if new data was generated and stored
-def update_current_article_data(data):
+def update_current_article_data(data, calc_features=True):
 
     global state
 
@@ -64,98 +77,94 @@ def update_current_article_data(data):
     state['filters'] = dict()
     state['nextFilterId'] = 0
 
-    #calculate and save sorting metrics if not precomputed
-    metrics_generated = False
-    # try:
+    if calc_features:
+        for i,feature in enumerate(FEATURE_MODULES):
+            print("Now calculating metric ", FEATURE_NAMES[i])
+            metrics_generated = feature.compute(state['queryData']) or metrics_generated
 
-    for i,feature in enumerate(FEATURE_MODULES):
-        print("Now calculating metric ", FEATURE_NAMES[i])
-        metrics_generated = feature.compute(state['queryData']) or metrics_generated
-
-    state['topk'] = dict({})
-    state['topk']['tfidf'] = calc_metrics(state['queryData']['filtered'], k=15, return_tfidf = True)
-    state['topk']['tf'] = calc_metrics(state['queryData']['filtered'], k=15, return_tfidf = False)
+        state['topk'] = dict({})
+        state['topk']['tfidf'] = calc_metrics(state['queryData']['filtered'], k=15, return_tfidf = True)
+        state['topk']['tf'] = calc_metrics(state['queryData']['filtered'], k=15, return_tfidf = False)
     # except Exception as e:
     #     print("Failed To Calculate Metrics")
     #     raise e
 
-    #save query data state to run notebooks on
-    if SAVE_TO_JSON:
-        with open("./sampleData.json", "w") as wfile:
-            state['queryData']['filtered']['vocabSet'] = list(state['queryData']['filtered']['vocabSet'])
-            json.dump(state, wfile)
-            state['queryData']['filtered']['vocabSet'] = set(state['queryData']['filtered']['vocabSet'])
+    return True
 
-    return metrics_generated
-
+#returns {params:{param:defaultVal}, categoricals:{param:allPossibleVals}}
 def get_options(feature):
-
-    if feature == 'lda':
-        return lda.options(state['queryData'])
-    elif feature == 'pub':
-        return pub.options(state['queryData'])
-    elif feature == 'ner':
-        return ner.options(state['queryData'])
-    elif feature == 'mfc1':
-        return mfc1.options(state['queryData'])
-    return ["Backend Has No options for {}".format(feature)]
+    return FEATURE_MODULES[FEATURE_NAMES.index(feature)].options(state['queryData'])
 
 
-def make_filter(flist):
+def make_filter(flist, is_sentence_level):
     
     urls = list(state['queryData']['raw'].keys())
 
     url_map = [True] * len(urls)
 
+    #initialize dict of arrays for sentence filter passing, either with values of true or false for each sentence
+    #based on whether or not the filter is finding the union or the interesection of validity at the sentence level
+    valid_sentences = dict([(url, [is_sentence_level for sent in state['queryData']['raw'][url]]) for url in state['queryData']['raw'].keys()])
+
     for f in flist:
 
         print("Filter Data: ", f.items())
 
-        is_valid = [True] * len(urls)
-
-        if f['name'] == "lda":
-            is_valid = lda.filter(state['queryData'], f['topicId'], f['topicSim'])
-        elif f['name'] == "tf":
-            is_valid = tf.filter(state['queryData'], f['term'], f['count'])
-        elif f['name'] == "pub":
-            is_valid = pub.filter(state['queryData'], f['publisher'])
-        elif f['name'] == "ner":
-            is_valid = ner.filter(state['queryData'], f['entity'], f['count'])
-        elif f['name'] == "mfc1":
-            is_valid = mfc1.filter(state['queryData'], f['frame'])
+        new_filter = FEATURE_MODULES[FEATURE_NAMES.index(f['name'])].filter(state['queryData'], f)
         
-        url_map = [url_map[i] and val for i, val in enumerate(is_valid)]
+        if new_filter == -1:#pass if module filter function is passed
+            continue
+
+        for url in valid_sentences.keys():
+            if is_sentence_level:
+                valid_sentences[url] = [valid_sentences[url][i] and new_filter[url][i] for i in range(len(valid_sentences[url]))]
+            else:
+                valid_sentences[url] = [valid_sentences[url][i] or new_filter[url][i] for i in range(len(valid_sentences[url]))]
     
-    state['filters'][state['nextFilterId']] = url_map
+    state['filters'][state['nextFilterId']] = valid_sentences
 
     state['nextFilterId'] += 1
 
     return state['nextFilterId'] - 1
     
 
+def get_sentences_from_fid(fid, only_valid_sentences=True):
 
+    if fid in state['filters']:
+        #init return val with urls of all documents with at least one sentence passing filter
+        sentence_ptr_dict = dict([(url, {}) for url in state['filters'][fid].keys()])
 
-def get_topk(fid, feature):
+        for doc in state['filters'][fid]:
+            #TODO: determine when doc has no valid sentences, dont include this doc when only_valid_sentences=False
+            #add array to dict with valid sentence indices, either all sentences if whole doc is included or only valid sentences
+            sentence_ptr_dict[doc] = [i for i in range(len(state['filters'][fid][doc])) if (not only_valid_sentences) or state['filters'][fid][doc][i]]
+
+        print("Num Valid sentences in filter:", sum(len(sentences) for sentences in sentence_ptr_dict.values()))
+        return sentence_ptr_dict
+
+    #default return dict of pointers to all sentences in loaded corpus
+    return dict([(url, list(range(len(state['queryData']['raw'][url])))) for url in state['queryData']['raw'].keys()])
+
+def get_topk(fid, feature, is_sentence_level):
     
     topk = []
 
-    if fid in state['filters']:
-
-        valid_docs = [url for i, url in enumerate(state['queryData']['raw'].keys()) if state['filters'][fid][i]]
-    else:
-        valid_docs = list(state['queryData']['raw'].keys())
+    valid_sentences = get_sentences_from_fid(fid, is_sentence_level)
 
     feature_mod = FEATURE_MODULES[FEATURE_NAMES.index(feature)]
 
-    if fid not in state['topk']:
-        state['topk'][fid] = dict({})
+    #CACHE TOPK BY FID AND FEATURE
+    # if fid not in state['topk']:
+    #     state['topk'][fid] = dict({})
 
-    if feature in state['topk'][fid]:
-        print("Returned cached topk value for " + feature)
-        topk = state['topk'][fid][feature]
-    else:
-        topk = feature_mod.topk(state['queryData'], valid_docs)
-        state['topk'][fid][feature] = topk
+    # if feature in state['topk'][fid]:
+    #     print("Returned cached topk value for " + feature)
+    #     topk = state['topk'][fid][feature]
+    # else:
+    #    
+    #     state['topk'][fid][feature] = topk
+
+    topk = feature_mod.topk(state['queryData'], valid_sentences)
 
     return topk
 
@@ -175,26 +184,19 @@ def use_state_in_json(fn):
     return out
 
 #function returning sentences containing the selected keyword
-def get_term_contexts(term, n_examples):
-    qdata = state['queryData']
+def get_feature_examples(fid, feature, val):
 
-    if not term in qdata['filtered']['vocabSet']:
-        return []
-    
-    out = []
-    p = -1
+    valid_sentences = get_sentences_from_fid(fid)
 
-    for (key,doc) in qdata['filtered']['tokenized'].items():
-        if term in doc:
-            
-            p = doc[term][0]
+    example_tuples = FEATURE_MODULES[FEATURE_NAMES.index(feature)].examples(state["queryData"], val, valid_sentences)
 
-            out.append(qdata['raw'][key][p])
+    print("Num examples fetched: ", len(example_tuples))
 
-            if len(out) == n_examples:
-                break
+    example_prefix = ["\n".join(state['queryData']['raw'][example[0]][:example[1]]) for example in example_tuples]
+    example_subject = ["\n".join(state['queryData']['raw'][example[0]][example[1]:example[2]]) for example in example_tuples]
+    example_suffix = ["\n".join(state['queryData']['raw'][example[0]][example[2]:]) for example in example_tuples]
 
-    return out
+    return [[example_prefix[i], example_subject[i], example_suffix[i]] for i in range(len(example_tuples))]
 
 def print_state_keys():
     print("State Keys:")
@@ -207,93 +209,7 @@ def get_query_and_topk():
 
     return dict([ ("query",state["query"]), ("topk",state["topk"]) ])
 
-def calculate_valid_urls():
-
-
-    good_pubs = set()
-
-    bad_pubs = set()
-
-    # min_date, max_date = get_date_range()
-
-    for curr_filter in state['filters']:
-
-        if curr_filter['attr'] == 'publisher':
-            if curr_filter['include']:
-                good_pubs.add(curr_filter['name'])
-            else:
-                bad_pubs.add(curr_filter['name'])
-
-        # elif curr_filter['attr'] == 'date':
-        #     min_date = date.fromisoformat(curr_filter['min_date'])
-        #     max_date = date.fromisoformat(curr_filter['max_date'])
-        
-    exclude_pubs = len(good_pubs) == 0
-
-    out = set()
-
-    for url in state['queryData']['raw'].keys():
-
-        if exclude_pubs and state['queryData']['metadata'][url]['publisher'] not in bad_pubs:
-                out.add(url)
-        elif state['queryData']['metadata'][url]['publisher'] in good_pubs:
-                out.add(url)
-        
-
-#remove filter from state given filter id
-def remove_filter(filter_id):
-
-    if filter_id > len(state['filters']) or filter_id < 0:
-        return
-    
-    del(state['filters'][filter_id])
-
-    calculate_valid_urls()
 
 
 
-#add filter to the data accessible to the frontend, return id to filter used for deleting in the future.
-def add_pub_filter(include, name):
-    state['filters'].append(dict({'attr':'publisher', 'name':name, 'include': include}))
 
-    calculate_valid_urls()
-
-    return len(state['filters'])
-    
-def get_publishers():
-
-    out = set()
-
-    for url in state['valid_urls']:
-
-        out.add(state['queryData']['metadata'][url]['publisher'])
-
-    return list(out)
-
-
-def get_date_range():
-
-    min_time = date.max
-
-    max_time = date.min
-
-    if len(state['valid_urls']) == 0:
-        return date.isoformat(date.today), date.isoformat(date.today)
-
-    for url in state['valid_urls']:
-
-        published_date = date.fromisoformat( state['queryData']['metadata'][url]['date'] )
-
-        if published_date > max_time:
-            max_time = published_date
-        
-        if published_date < min_time:
-            min_time = published_date
-        
-
-
-    return date.isoformat(min_time), date.isoformat(max_time)
-
-
-def unpack_filter(data):
-    return data['ref'], data['type'], data['val']

@@ -1,7 +1,7 @@
 
 //Constants
 const MAX_ARTICLES = 100;
-const OFFLINE_DATA = "../../aylien_corpus/aylien_articles.json";
+const OFFLINE_DATA = "../../offline_newsdata/aylien_articles.json";
 
 //Other Files
 const ScrapeCluster = require("../utils/clusterUtil.js");
