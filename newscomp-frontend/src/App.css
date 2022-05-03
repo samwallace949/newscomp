@@ -127,3 +127,15 @@
   width:80%;
   margin:1% 10% 1% 10%;
 }
+.filter-input{
+  background-color: lightgray;
+  padding:10px;
+  margin-top:10px;
+  margin-bottom:10px;
+}
+.filter-input-content{
+  margin-left: 5px;
+}
+.filter-input-button{
+  margin-bottom: 5px;
+}

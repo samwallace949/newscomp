@@ -1,7 +1,8 @@
 
 //Constants
 const MAX_ARTICLES = 100;
-const OFFLINE_DATA = "../../offline_newsdata/aylien_articles.json";
+const OFFLINE_DATA = "../ignored/aylien_articles.json";
+const OFFLINE_FEATURE_DATA = "../ignored/saved_feature_data.json"
 
 //Other Files
 const ScrapeCluster = require("../utils/clusterUtil.js");
@@ -39,7 +40,7 @@ function respondWithError(q, res,err){
 }
 
 //filter, save article data, return res object
-async function processQueryData(query, rawQueryData, urlMetadataMap, isTest, isAylien){
+async function processQueryData(query, rawQueryData, urlMetadataMap, isTest, isOffline){
     //tokenize and filter raw text
     const queryData = {raw: rawQueryData, filtered: Cleaner.filterTokens(rawQueryData), metadata: urlMetadataMap};
 
@@ -52,7 +53,7 @@ async function processQueryData(query, rawQueryData, urlMetadataMap, isTest, isA
         "queryData": queryData,
         "topk": Cleaner.topKTerms(queryData.filtered, 8),
         "isTest": isTest,
-        "isAylien": isAylien,
+        "isOffline": isOffline,
         "success": true
     };
 
@@ -160,35 +161,40 @@ queryRoutes.post("/test-data/write", async(req,res) =>{
 
 });
 
-//retrieve aylien data either from DB, or retrieve locally and push to DB
-queryRoutes.get("/aylien/read", async(req,res) =>{
+//retrieve offline data either from DB, or retrieve locally and push to DB
+queryRoutes.get("/offline/read", async(req,res) =>{
 
-    const testData = await queryModel.findOne({"isAylien": true}).exec();
-
-    if (testData){
-        res.status(200).send(testData);
-    }else{
-        console.log("Database does not contain the aylien data. Loading Locally and adding to DB...")
-
-        const aylienData = JSON.parse(readFileSync(OFFLINE_DATA));
-        if(!aylienData)throw "No aylien data found on DB or Locally.";
+    const offlineData = JSON.parse(readFileSync(OFFLINE_DATA));
+    if(!offlineData)throw "No offline data found.";
         
-        console.log(`Aylien data Loaded. Keys of data: ${Object.keys(aylienData)} totalling ${Object.keys(aylienData).length}`);
+    console.log(`Offline data Loaded. Keys of data: ${Object.keys(offlineData)} totalling ${Object.keys(offlineData).length}`);
 
 
-        //process offline data if it hasnt been already
-        const responseObject = ("raw" in aylienData) ? await processQueryData("", aylienData["raw"], aylienData["metadata"], false, true) : aylienData;
+    //process offline data
+    const responseObject = await processQueryData("", offlineData["raw"], offlineData["metadata"], false, true);
 
-        res.status(200).send(responseObject);
-    }
+    res.status(200).send(responseObject);
     
 });
 
-queryRoutes.post("/aylien/write", async(req,res) =>{
+queryRoutes.post("/offline/features/read", async(req,res) =>{
+
+    const offlineData = JSON.parse(readFileSync(OFFLINE_FEATURE_DATA));
+    if(!offlineData)throw "No offline data found.";
+        
+    console.log(`Offline data Loaded. Keys of data: ${Object.keys(offlineData)} totalling ${Object.keys(offlineData).length}`);
+
+
+    //process offline data;
+
+    res.status(200).send(offlineData);
+
+});
+queryRoutes.post("/offline/features/write", async(req,res) =>{
 
     console.log("Wrting new test data...");
 
-    // await queryModel.deleteMany({isAylien:true});
+    // await queryModel.deleteMany({isOffline:true});
 
     // const doc = new queryModel(req.body);
 
@@ -198,7 +204,7 @@ queryRoutes.post("/aylien/write", async(req,res) =>{
 
     console.log(`new offline data size: ${datastring.length}`);
 
-    writeFileSync(OFFLINE_DATA, JSON.stringify(req.body));
+    writeFileSync(OFFLINE_FEATURE_DATA, JSON.stringify(req.body));
 
     res.send(req.body);
 

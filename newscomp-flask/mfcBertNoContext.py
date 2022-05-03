@@ -1,6 +1,7 @@
 
 import torch
 import torch.nn as NN
+from torch.nn.functional import normalize
 from sentence_transformers import SentenceTransformer
 
 #ordering of frame labels for classifier (unfortunately this cant be undone without retraining it)
@@ -81,7 +82,7 @@ class SentenceClassifier(NN.Module):
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = SentenceClassifier(keys)
-model.load_state_dict(torch.load("../../distilberta-mfc-no-context.pt", map_location=device))
+model.load_state_dict(torch.load("../ignored/distilberta-mfc-no-context.pt", map_location=device))
 model.eval()
 
 
@@ -92,50 +93,87 @@ def compute(state):
     state['mfc1'] = dict({})
     for i, article in enumerate(state['raw']):
         print("Done with article {} of {}".format(i, len(state['raw'])))
-        output = model(state['raw'][article])
-        logits = torch.argmax(output, dim = 1)
-        state['mfc1'][article] = [keys[logits[i].item()] for i in range(len(state['raw'][article]))]
+        state['mfc1'][article] = model(state['raw'][article])
+        print("Shape of article tensor:", state['mfc1'][article].shape)
+        state['mfc1'][article] = state['mfc1'][article].tolist()
         
     
     
     
 def options(state):
-    return [codes[k] for k in keys]
+
+    out = {
+        "params":{
+            "code": 0,
+            "threshold": 0.5
+        },
+        "categoricals":{
+            "code": [codes[k] for k in keys]
+        },
+        "labels":{
+            "code": "Frame Code: ",
+            "threshold": "Frame Probability: "
+        }
+    }
+
+    return out
 
 
-def filter(state, code):
-    out = []
+def filter(state, params):
+    out = dict({})
 
     target_key = None
     for key in codes:
-        if codes[key] == code:
-            target_key = key
+        if codes[key] == params['code']:
+            target_key = keys.index(key)
             break
 
+    if target_key is None:
+        print("Error: no matching frame key for that code.")
 
     urls = list(state['raw'].keys())
 
-    if target_key is None:
-        return [False]*len(urls)
-
     for url in urls:
-        frame_set = set(state['mfc1'][url])
-        #chack for basic binary containment of this frame
-        out.append(target_key in frame_set)
+        
+        if target_key is None:
+            out[url] = [False]*len(state['raw'][url])
+
+        sentence_probs = torch.tensor(state['mfc1'][url]).t()[target_key]
+        sentence_validity_vals = torch.where(sentence_probs > float(params['threshold']), True, False).tolist()
+        out[url] = sentence_validity_vals
     
     return out
     
-def topk(state, docs, k=15):
+def topk(state, sentences, k=15):
 
-    frame_frequencies = dict([(codes[key], 0) for key in keys])
+    frame_frequencies = torch.tensor([0]*len(keys))
 
-    for doc in docs:
-
-        for frame in state['mfc1'][doc]:
-            frame_frequencies[codes[frame]] += 1
-    
-    return sorted(frame_frequencies.items(), key=lambda a:a[1], reverse=True)[:k]
-
+    for doc in sentences:
+        sent_probs_tensor = torch.tensor(state['mfc1'][doc])
+        sent_probs_tensor = torch.index_select(sent_probs_tensor, 0, torch.tensor(sentences[doc], dtype=torch.long))
+        norm_doc_probs = normalize(torch.sum(sent_probs_tensor, dim=0), dim=0, p=1)
+        frame_frequencies = torch.add(frame_frequencies, norm_doc_probs)
     
 
+    frame_frequencies = normalize(frame_frequencies, dim=0, p=1)
+    norm_corpus_probs = [(codes[keys[i]], frame_frequencies[i].item()) for i in range(len(keys))]
 
+    return sorted(norm_corpus_probs, key=lambda a:a[1], reverse=True)[:min(len(keys),k)]
+
+
+def examples(state, code, sentences, k=5):
+
+    target_idx = [codes[key] for key in keys].index(code)
+
+    example_spans = []
+    for doc in sentences:
+        if len(sentences[doc]) == 0:
+            continue
+        #get index of maximally representative valid sentence in document and return it.
+        sent_probs_tensor = torch.tensor(state['mfc1'][doc])[:, target_idx]
+        sent_probs_tensor = torch.index_select(sent_probs_tensor, 0, torch.tensor(sentences[doc], dtype=torch.long))
+        max_prob = torch.max(sent_probs_tensor).item()
+        argmax_prob = sentences[doc][torch.argmax(sent_probs_tensor).item()]
+        example_spans.append((doc, argmax_prob, argmax_prob + 1, max_prob))
+        
+    return sorted(example_spans, key = lambda a: a[-1], reverse=True)[:min(k, len(example_spans))]

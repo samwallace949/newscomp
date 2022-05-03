@@ -42,14 +42,22 @@ export async function getOfflineData(){
   const req = {
     method: 'get',
     headers:{"Accept":"application/json","Content-Type": "application/json"},
-    url: `http://localhost:3000/queries/aylien/read`
+    url: `http://localhost:3000/queries/offline/read`
   };
 
   return await getQueryAndTopK(req);
 
 }
 
+export async function getOfflineFeatureData(){
+  const req = {
+    method: 'get',
+    headers:{"Accept":"application/json","Content-Type": "application/json"},
+    url: `http://localhost:3000/queries/offline/features/read`
+  };
 
+  return await getQueryAndTopK(req);
+}
 
 export async function contextualizeTerms(t){
   let req = {
@@ -109,12 +117,12 @@ export async function getFeatureOptions(feature){
   });
 }
 
-export async function applyFilterAndGetTopK(flist, sortMetric){
+export async function applyFilterAndGetTopK(flist, sortMetric, filterSentenceLevel, topkSentenceLevel){
 
   const req = {
     method:"post",
     headers:{"Accept":"application/json","Content-Type": "application/json"},
-    data: {flist, sortMetric},
+    data: {flist, sortMetric, filterSentenceLevel, topkSentenceLevel},
     url: `http://localhost:3000/filter/create`
   }
 
@@ -130,12 +138,12 @@ export async function applyFilterAndGetTopK(flist, sortMetric){
   });
 }
 
-export async function getTopK(fid, sortMetric){
+export async function getTopK(fid, sortMetric, topkSentenceLevel){
 
   const req = {
     method:"post",
     headers:{"Accept":"application/json","Content-Type": "application/json"},
-    data: {fid, sortMetric},
+    data: {fid, sortMetric, topkSentenceLevel},
     url: `http://localhost:3000/filter/topk`
   };
 
@@ -152,4 +160,24 @@ export async function getTopK(fid, sortMetric){
     return null;
   });
 
+}
+
+export async function getExamples(fid, sortMetric, metricVal){
+  const req = {
+    method:"post",
+    headers:{"Accept":"application/json","Content-Type": "application/json"},
+    data: {fid, sortMetric,metricVal},
+    url: `http://localhost:3000/filter/examples`
+  };
+
+  return await axios(req)
+  .then((response)=>{
+
+    console.log(response.data);
+    return response.data.examples;
+
+  }).catch((error)=>{
+    console.log(error);
+    return [];
+  });
 }

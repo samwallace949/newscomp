@@ -6,16 +6,12 @@ import ContextSearch from "./Context";
 import CorpusFeatureDropwdown from "./CorpusFeatureDropdown";
 
 import {getFeatureOptions} from "./apiCalls";
-import {applyFilterAndGetTopK, getTopK} from "./apiCalls";
+import {applyFilterAndGetTopK, getTopK, getExamples} from "./apiCalls";
 
 // bootstrap imports
 import Table from "react-bootstrap/Table";
-import PublisherFilterInput from "./PublisherFilterInput";
-import TopicFilterInput from "./TopicFilterInput";
-import TFFilterInput from "./TFFilterInput";
-import EntityFilterInput from "./EntityFilterInput";
-import MFCFilterInput from "./MFCFilterInput";
 import FilterCard from "./FilterCard";
+import FilterInput from "./FilterInput";
 import { Button } from "react-bootstrap";
 
 
@@ -34,7 +30,7 @@ function Filter(props){
 
         changeFilterMetric(metric);
 
-        let res = await getFeatureOptions(metric, props.id);
+        let res = await getFeatureOptions(metric);
 
         res.loaded = true;
 
@@ -79,31 +75,53 @@ function Filter(props){
             }
         );
 
+    const [examples, changeExamples] = useState([]);
+    async function handleExampleChange(metricVal){
+        const exampleStrings = await getExamples(currFilterId, sortMetric, metricVal)
+        changeExamples(exampleStrings);
+    }
+
     const [currFilterId, changeCurrFilterId] = useState(-1);
+
+    const [sentenceLevelFiltering, changeSentenceLevelFiltering] = useState(true);
+    const handleSentenceLevelFilteringChange = () => changeSentenceLevelFiltering(!sentenceLevelFiltering);
     async function applyCurrentFilter(e){
 
         e.preventDefault();
 
-        const res = await applyFilterAndGetTopK(filterList, sortMetric);
+        const res = await applyFilterAndGetTopK(filterList, sortMetric, sentenceLevelFiltering, sentenceLevelTopk);
         
         changeCurrFilterId(res.filterId);
         
         let newTopTerms = {};
-
         newTopTerms[sortMetric] = res.topk ? res.topk : [];
 
         changeTerms(newTopTerms);
     }
+
+    const [sentenceLevelTopk, changeSentenceLevelTopk] = useState(true);
+    async function handleSentenceLevelTopkChange (){
+        
+        const currSentenceLevelTopk = sentenceLevelTopk;
+        changeSentenceLevelTopk(!sentenceLevelTopk);
+
+        const res = await getTopK(currFilterId, sortMetric, !currSentenceLevelTopk);
+
+        let newTopTerms = {};
+        newTopTerms[sortMetric] = res.topk ? res.topk : [];
+
+        changeTerms(newTopTerms);
+    }
+    
     async function getNewSorting(newSortMetric){
 
         console.log(`Fecthing data for sort metric ${newSortMetric}`);
 
         changeSortMetric(newSortMetric);
 
-        const res = await getTopK(currFilterId, newSortMetric);
+        const res = await getTopK(currFilterId, newSortMetric, sentenceLevelTopk);
 
         let newTopTerms = {};
-
         newTopTerms[newSortMetric] = res.topk ? res.topk : [];
 
         changeTerms(newTopTerms);
@@ -115,17 +133,7 @@ function Filter(props){
                 <h5>Add Filter:</h5>
                 <CorpusFeatureDropwdown onChange={loadFilterMetricOptions} sortMetricNames={props.sortMetricNames}/>
                 {filterMetricOptions.loaded &&
-                    (filterMetric === "pub" &&
-                        <PublisherFilterInput handleFilterSubmit={appendToFilterList} pubNames = {filterMetricOptions.options}/>
-                    ) || ( filterMetric === "lda" &&
-                        <TopicFilterInput handleFilterSubmit={appendToFilterList} topicNames={filterMetricOptions.options}/>
-                    ) || ( filterMetric === "tf" &&
-                        <TFFilterInput handleFilterSubmit={appendToFilterList}/>
-                    ) || ( filterMetric === "ner" &&
-                        <EntityFilterInput handleFilterSubmit={appendToFilterList} entities={filterMetricOptions.options}/>
-                    ) || (filterMetric === "mfc1" &&
-                        <MFCFilterInput handleFilterSubmit={appendToFilterList} frameNames={filterMetricOptions.options}/>
-                    )
+                    <FilterInput handleFilterSubmit={appendToFilterList} featureName={filterMetric} filterParams={filterMetricOptions.options.params} categoricals={filterMetricOptions.options.categoricals} labels={filterMetricOptions.options.labels}/>
                 }
                 {filterList.length > 0 && 
                     (<>
@@ -133,7 +141,10 @@ function Filter(props){
                             {filterList.map((f, i) => <FilterCard filter={f} idx={i} handleDelete={removeFilterByIndex}/>)}
                         </ul>
                     </>)}
+                <br></br>
                 <button onClick={applyCurrentFilter}>Filter Articles</button>
+                <input type="checkbox" id="sentence-filter" className="search-checkbox" defaultChecked={sentenceLevelFiltering} onChange={handleSentenceLevelFilteringChange}></input>
+                <label for="sentence-filter">Filter at the Sentence Level</label>
             </form>
             <div/>
             <br></br>
@@ -143,20 +154,24 @@ function Filter(props){
                         <tr>
                             <th>Rank</th>
                             <th>Feature</th>
-                            <th><CorpusFeatureDropwdown onChange={getNewSorting} sortMetricNames={props.sortMetricNames}/></th>
+                            <th>
+                                <CorpusFeatureDropwdown onChange={getNewSorting} sortMetricNames={props.sortMetricNames}/>
+                                <input type="checkbox" id="topk-filter" className="search-checkbox" defaultChecked={sentenceLevelTopk} onChange={handleSentenceLevelTopkChange}></input>
+                                <label for="topk-filter">Show Only Sentence-Level Values</label>
+                            </th>
                         </tr>
                     </thead>
                     <tbody>
                         {(sortMetric in topTerms &&
                             topTerms[sortMetric].map((termCount, idx) => 
-                                <TopTerm idx={idx} term={termCount[0]} count={termCount[1]}/>)
+                                <TopTerm idx={idx} term={termCount[0]} count={termCount[1]} exampleHandler={handleExampleChange}/>)
                         ) 
                         || (!(sortMetric in topTerms) && <TopTerm idx={0} term={`No Results Loaded for ${sortMetric}`} count={0} />)
                         }
                     </tbody>
                 </Table>
 
-                <ContextSearch termLength={0}/>
+                {examples.length > 0 && (<ContextSearch examples={examples}/>)}
 
             </div>
         </>

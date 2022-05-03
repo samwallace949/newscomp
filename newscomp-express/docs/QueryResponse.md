@@ -18,27 +18,19 @@ Response: Object{
                 }
             },
 
-            paragraphs: Object{
-                $queryUrl: List[String] //plaintext list of the paragraphs (kept for easy context fetching)
-            },
-
             vocabSet: List[String], //vocabulary set stored as a list
 
             unstemmed: Object: {
                 $term: String //maps to one of the unstemmed variants of any given term in the vocab.
             }
+        },
+
+        metadata: Object{  //map for each article to its metadata
+            $queryUrl: Object{
+                date: Date  //the date that the article was published
+                publisher: String  //the publisher of the article 
+            }
         }
     },
-
-    dateTo: Date,
-    dateFrom: Date,
-
-    topk: List[
-        List[
-            term: String,
-            count: Number 
-        ]
-    ],
-
-    isTest: Boolean
+    isTest: Boolean  //determines if this is the test data. Internal value used for storing this state in DB without duplicates.
 }

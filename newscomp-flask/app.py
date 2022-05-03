@@ -2,13 +2,18 @@ from flask import Flask, jsonify
 from flask import request
 import requests
 
+import json
+
 from filters import *
 from stateUtils import *
 from metrics import *
 
 
 app = Flask(__name__)
-SAVE_OFFLINE_DATA = False
+SAVE_OFFLINE_DATA_FEATURES = True
+SAVE_TEST_DATA_FEATURES = False
+
+OFFLINE_DATA_FEATURES_LOCATION = "../ignored/offline_features.json"
 
 @app.route("/")
 def hello_world():
@@ -41,9 +46,9 @@ def loadTestData():
     result = requests.get("http://localhost:8080/queries/test-data/read").json()
 
     #update the current state, and if metrics are generated, save the resulting metrics back to DB
-    if update_current_article_data(result):
+    if update_current_article_data(result) and SAVE_TEST_DATA_FEATURES:
 
-        status = requests.post("http://localhost:8080/queries/test-data/write", json=get_current_article_data()).json()
+        #status = requests.post("http://localhost:8080/queries/test-data/write", json=get_current_article_data()).json()
 
         print("Resaved test data: ", status)
 
@@ -53,17 +58,20 @@ def loadTestData():
 
     return jsonify(get_query_and_topk())
 
-@app.route("/queries/aylien/read", methods = ["GET"])
-def loadAylienData():
+@app.route("/queries/offline/read", methods = ["GET"])
+def loadOfflineData():
 
-    result = requests.get("http://localhost:8080/queries/aylien/read").json()
+    result = requests.get("http://localhost:8080/queries/offline/read").json()
 
     #update the current state, and if metrics are generated, save the resulting metrics back to DB
-    if update_current_article_data(result) and SAVE_OFFLINE_DATA:
+    if update_current_article_data(result) and SAVE_OFFLINE_DATA_FEATURES:
 
-        post_fn = lambda a: requests.post("http://localhost:8080/queries/aylien/write", json=a).json()
+        #post_fn = lambda a: requests.post("http://localhost:8080/queries/offline/features/write", json=a).json()
+        def post_fn(state):
+            with open(OFFLINE_DATA_FEATURES_LOCATION, "w") as f:
+                json.dump(state,f)
 
-        #send JSON test data to node using the inline function above
+        #send JSON test data to node or save locally using the inline function above
         status = use_state_in_json(post_fn)
 
         print("Resaved test data: ", status)
@@ -74,7 +82,22 @@ def loadAylienData():
 
     return jsonify(get_query_and_topk())
 
+@app.route("/queries/offline/features/read", methods = ["GET"])
+def loadOfflineDataFeatures():
 
+    #result = requests.get("http://localhost:8080/queries/offline/features/read").json()
+    result=None
+    with open(OFFLINE_DATA_FEATURES_LOCATION, "r") as f:
+        result = json.load(f)
+
+    #update the current state, and if metrics are generated, save the resulting metrics back to DB
+    update_current_article_data(result, calc_features=False)
+
+    print("Result Keys: ")
+    for key in list(result.keys()):
+        print(key)
+
+    return jsonify(get_query_and_topk())
 
 
 #passthrough to node
@@ -102,8 +125,8 @@ def get_feature_options(feature):
 def create_filter_return_topk():
     req = request.get_json()
 
-    filterId = make_filter(req['flist'])
-    topk = get_topk(filterId, req['sortMetric'])
+    filterId = make_filter(req['flist'], req['filterSentenceLevel'])
+    topk = get_topk(filterId, req['sortMetric'], req['topkSentenceLevel'])
 
     return jsonify({"filterId":filterId, "topk":topk})
 
@@ -112,6 +135,15 @@ def return_topk():
 
     req = request.get_json()
 
-    topk = get_topk(req['fid'], req['sortMetric'])
+    topk = get_topk(req['fid'], req['sortMetric'], req['topkSentenceLevel'])
 
     return jsonify({"topk":topk})
+
+@app.route("/filter/examples", methods=["POST"])
+def return_sample_results():
+
+    req = request.get_json()
+
+    examples = get_feature_examples(req['fid'], req['sortMetric'], req['metricVal'])
+
+    return jsonify({"examples":examples})

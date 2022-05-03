@@ -4,80 +4,72 @@ import {useState} from "react";
 import Dropdown from "react-bootstrap/Dropdown";
 
 
-function FilterInput(props){
+function FilterInput({handleFilterSubmit, featureName, filterParams, categoricals, labels}){
     
     function submitInputs(e){
         e.preventDefault();
-        let out = {name:props.metricName};
+        let out = JSON.parse(JSON.stringify(filterVal));
+        out.name = featureName;
+        //resolve all categorical variable indices to the real labels
+        Object.keys(categoricals).forEach((key) => {
+            if(out[key] < categoricals[key].length) out[key] = categoricals[key][out[key]];
+        });
+        handleFilterSubmit(out);
+    }
 
-        if (props.metricName === "pub"){
-            out.pub = pubname;
-            props.handleFilterSubmit(out);
+    const [filterVal, changeFilterVal] = useState(JSON.parse(JSON.stringify(filterParams)));
+
+    function changeFilterField(field){
+        return (e) => {
+
+            //if the field is categorical, we write the event and not the target
+            const is_categorical = !!(field in categoricals);
+            if(!is_categorical)e.preventDefault();
+
+            let copy = JSON.parse(JSON.stringify(filterVal));
+
+            copy[field] = is_categorical ? e : e.target.value;
+            changeFilterVal(copy);
         }
-        else if (props.metricName == "lda" && props.topicNames){
-            out.topicId = topicId;
-            out.topicSim = topicSim;
-            props.handleFilterSubmit(out);
-        }
     }
-
-
-    
-    const [pubname, changePubname] = useState("");
-
-    function changePublisher(e){
-        e.preventDefault();
-        changePubname(e.target.value);
-    }
-
-    const [topicId, changeTopicId] = useState(0);
-    const [topicSim, changeTopicSim] = useState(0.5);
-
-    function handleTopicChange(e){
-        e.preventDefault();
-
-        changeTopicId(e.target.value);
-    }
-
-    function handleTopicSimChange(e){
-        e.preventDefault();
-        changeTopicSim(e.target.value);
-    }
-
 
     
     return(
-        <div className = "border">
+        <div className = "border filter-input">
 
-            {props.metricName == "pub" && 
-                (<>
-                    <input className="search-bar filter-bar border" placeholder = "Filter Info" onChange={changePublisher} value={pubname}></input>
-                </>)
-            }
+                {
+                    Object.keys(filterParams).map((key) =>{
+                        if (key in categoricals){
+                            return(
+                                <div className="filter-input-content">
+                                    <h5>{labels[key]}</h5>
+                                    <Dropdown onSelect={changeFilterField(key)}>
+                                        <Dropdown.Toggle variant="success" id="dropdown-basic">
+                                            {(categoricals[key] && categoricals[key].length > 0) ? categoricals[key][filterVal[key]] : "No Items Loaded"}
+                                        </Dropdown.Toggle>
 
-            {props.metricName == "lda" &&
-                (<>
-                        {props.topicNames ?
-                            (<>
-                                <Dropdown onSelect={handleTopicChange}>
-                                    <Dropdown.Toggle variant="success" id="dropdown-basic">
-                                        {props.topicNames? props.topicNames[topicId] : "No Topics Loaded"}
-                                    </Dropdown.Toggle>
-
-                                    <Dropdown.Menu>
-                                        {Object.values(props.topicNames).map((name) => 
-                                            (<Dropdown.Item value="testMetricChange">{name}</Dropdown.Item>)
-                                        )}
-                                    </Dropdown.Menu>
-                                </Dropdown>
-                                <input className="search-bar filter-bar border" placeholder = "Filter Info" onChange={handleTopicSimChange} value={topicSim}></input>
-                            </>)
-                            :
-                            <h5>No Topics Loaded</h5>
+                                        <Dropdown.Menu>
+                                            {Object.values(categoricals[key]).map((val, idx) => 
+                                                (<Dropdown.Item eventKey={idx} value="testMetricChange">{val}</Dropdown.Item>)
+                                            )}
+                                        </Dropdown.Menu>
+                                    </Dropdown>
+                                </div>
+                            );
                         }
-                </>)
-            }
-            <button onClick={submitInputs}>Apply Filter</button>
+                        else{
+                            return (
+                                <div className="filter-input-content">
+                                    <h5>{labels[key]}</h5>
+                                    <input className="search-bar filter-bar border" placeholder = {filterParams[key]} onChange={changeFilterField(key)} value={filterVal[key]}></input>
+                                    <br></br>
+                                </div>
+                            );
+                        }
+                    })
+                }
+            <br></br>
+            <button className="filter-input-button filter-input-content" onClick={submitInputs}>Apply Filter</button>
         </div>
     );
 }
