@@ -23,7 +23,9 @@ function TopLevelSearch(props){
         "pub": "Publisher",
         "ner": "Named Entities",
         "mfc1": "Detected Frames",
-        "tfidf": "TF-IDF"
+        "tfidf": "TF-IDF",
+        "frameLabels": 'Ground-Truth Frames',
+        "kMeans": "Clusters"
     });
 
     async function query(e){

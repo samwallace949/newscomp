@@ -93,7 +93,7 @@ def examples(state, pub, sentences, k=5):
         if state['metadata'][doc]['publisher'] == pub:
             # add only 1 exemplary sentece per document
             try:
-                #add first sentence to examples
+                #add first sentence to examples, with weight of number of sentences in doc
                 out.append((doc, sentences[doc][0], sentences[doc][0]+1, len(sentences[doc])))
             except:
                 continue

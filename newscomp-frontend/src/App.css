@@ -50,14 +50,6 @@
   margin: auto 20% auto 20%;
 }
 
-.results-grid-container{
-  display: grid;
-  width: 100%;
-  grid-template-columns: 50% 50%;
-  margin-bottom: 10px;
-  margin-left: 1%;
-}
-
 .TopTerm{
   width:96%;
   height:50px;
@@ -88,7 +80,7 @@
 }
 
 .container{
-  width:98%;
+  width:100%;
   height:auto;
   border-color: darkgray;
   background-color: whitesmoke;
@@ -133,9 +125,31 @@
   margin-top:10px;
   margin-bottom:10px;
 }
+.filter_list{
+  margin:0;
+}
 .filter-input-content{
   margin-left: 5px;
 }
 .filter-input-button{
   margin-bottom: 5px;
+}
+
+.results-grid-container{
+  display: grid;
+  width: 100%;
+
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  
+  grid-template-columns: 50% 50%;
+  margin-bottom: 10px;
+  margin-left: 1%;
+}
+
+.topk1{
+  grid-column: 1;
+}
+.topk2{
+  grid-column: 2;
 }

@@ -10,7 +10,7 @@ function ContextSearch(props){
 
     return (
         <form>
-            <ListGroup style = {{"margin-left":5+'%', "margin-right": 5+"%", "max-height":500+"px", "overflow":"scroll"}}>
+            <ListGroup style = {{"margin-left":0+'%', "margin-right": 0+"%", "max-height":500+"px", "overflow":"scroll"}}>
                 {props.examples.length > 0 ? props.examples.map((x) => <ListGroupExpandableItem example={x}/>) : <ListGroup.Item>No Examples Loaded.</ListGroup.Item>}
             </ListGroup>
         </form>

@@ -1,13 +1,7 @@
-
-//Constants
-const MAX_ARTICLES = 100;
-const OFFLINE_DATA = "../ignored/aylien_articles.json";
-const OFFLINE_FEATURE_DATA = "../ignored/saved_feature_data.json"
-
 //Other Files
 const ScrapeCluster = require("../utils/clusterUtil.js");
 const Cleaner = require("../utils/cleanArticleUtil.js");
-const secrets = require("../secrets.js");
+const secrets = require("../../ignored/secrets.js");
 const {querySchema, queryModel} = require("../schemas/querySchema.js");
 
 //Libraries
@@ -15,6 +9,11 @@ const {readFileSync, writeFileSync} = require("fs");
 const {Router} = require("express");
 const NewsAPI = require("newsapi");
 const newsapi = new NewsAPI(secrets.napikey);
+
+//Constants
+const MAX_ARTICLES = 100;
+const {featurefile} = JSON.parse(readFileSync("../ignored/local-data-info.json"));
+const OFFLINE_FEATURE_DATA = "../ignored/" + featurefile;
 
 const queryRoutes = Router();
 
@@ -164,7 +163,9 @@ queryRoutes.post("/test-data/write", async(req,res) =>{
 //retrieve offline data either from DB, or retrieve locally and push to DB
 queryRoutes.get("/offline/read", async(req,res) =>{
 
-    const offlineData = JSON.parse(readFileSync(OFFLINE_DATA));
+    const offlineDataFile = "../ignored/" + JSON.parse(readFileSync("../ignored/local-data-info.json")).datafile;
+
+    const offlineData = JSON.parse(readFileSync(offlineDataFile));
     if(!offlineData)throw "No offline data found.";
         
     console.log(`Offline data Loaded. Keys of data: ${Object.keys(offlineData)} totalling ${Object.keys(offlineData).length}`);

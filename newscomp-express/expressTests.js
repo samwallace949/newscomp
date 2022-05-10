@@ -3,7 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 
 //Other Files
-const secrets = require("./secrets.js");
+const secrets = require("../ignored/secrets.js");
 const {addQueryRoute} = require("./routes/queryRoute");
 
 //Construct DB URI

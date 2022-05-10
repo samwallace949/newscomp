@@ -15,16 +15,18 @@ function FilterCard(props){
     }
 
     return (
-        <Card>
-            <Card.Header>{props.filter.name}</Card.Header>
-            <Card.Body>{getFilterProps(props.filter).map((txt) =>(
-                <>
-                    <Card.Text><small>{txt}</small></Card.Text>
-                </>
-            ))}
-            </Card.Body>
-            <Button variant="danger" onClick={() => props.handleDelete(props.idx)}>Delete</Button>
-        </Card>
+        <div className='filter-list'>
+            <Card>
+                <Card.Header>{props.filter.name}</Card.Header>
+                <Card.Body>{getFilterProps(props.filter).map((txt) =>(
+                    <>
+                        <Card.Text><small>{txt}</small></Card.Text>
+                    </>
+                ))}
+                </Card.Body>
+                <Button variant="danger" onClick={() => props.handleDelete(props.idx)}>Delete</Button>
+            </Card>
+        </div>
     );
 }
 
