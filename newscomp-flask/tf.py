@@ -86,4 +86,4 @@ def examples(state, term, sentences, k=5):
     
     random.shuffle(ex_list)
 
-    return ex_list
+    return ex_list[:min(k, len(ex_list))]

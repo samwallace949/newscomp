@@ -10,10 +10,14 @@ from metrics import *
 
 
 app = Flask(__name__)
-SAVE_OFFLINE_DATA_FEATURES = True
+SAVE_OFFLINE_DATA_FEATURES = False
 SAVE_TEST_DATA_FEATURES = False
 
 OFFLINE_DATA_FEATURES_LOCATION = "../ignored/offline_features.json"
+
+with open("../ignored/local-data-info.json", "r") as f:
+    file_params = json.load(f)
+    OFFLINE_DATA_FEATURES_LOCATION = "../ignored/" + file_params['featurefile']
 
 @app.route("/")
 def hello_world():
@@ -125,10 +129,10 @@ def get_feature_options(feature):
 def create_filter_return_topk():
     req = request.get_json()
 
-    filterId = make_filter(req['flist'], req['filterSentenceLevel'])
+    num_sentences, num_docs, filterId = make_filter(req['flist'], req['filterSentenceLevel'])
     topk = get_topk(filterId, req['sortMetric'], req['topkSentenceLevel'])
 
-    return jsonify({"filterId":filterId, "topk":topk})
+    return jsonify({"filterId":filterId, "topk":topk, "numSentences":num_sentences, "numDocs":num_docs})
 
 @app.route("/filter/topk", methods=["POST"])
 def return_topk():

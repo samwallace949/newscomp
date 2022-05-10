@@ -2,10 +2,12 @@
 import torch
 import torch.nn as NN
 from torch.nn.functional import normalize
-from sentence_transformers import SentenceTransformer
+from transformers import RobertaModel, RobertaTokenizerFast
+
+tokenizer = RobertaTokenizerFast.from_pretrained("roberta-base")
 
 #ordering of frame labels for classifier (unfortunately this cant be undone without retraining it)
-keys = ['13.0','6.0','1.0','14.0','12.0','2.0','11.0','9.0','3.0','10.0','5.0','8.0','4.0','7.0','15.0']
+keys = ['1.0','2.0','3.0','4.0','5.0','6.0','7.0','8.0','9.0','10.0','11.0','12.0','13.0','14.0','15.0']
     
 codes = {
   "0": "None", 
@@ -63,27 +65,76 @@ codes = {
 }
 
 
-class SentenceClassifier(NN.Module):
-    def __init__(self, labels):
+class FullContextSpanClassifier(NN.Module):
+    def __init__(self, labels, reporting=False):
         
         super().__init__()
-        
-        self.transformer = SentenceTransformer('sentence-transformers/all-distilroberta-v1')
+        self.transformer = RobertaModel.from_pretrained("roberta-base")
         for params in self.transformer.parameters():
             params.requires_grad = False
-        
+        self.transformer.eval()
         self.fc = NN.Linear(768, len(labels))
         self.logits = NN.Softmax()
         self.labels = labels
+        self.reporting=reporting
     
     def forward(self, x):
-        return self.logits(self.fc(torch.tensor(self.transformer.encode(x))))
+        tokens = x[0]
+        indices = x[1]
+        dims = list(indices.shape)
+        indices = torch.flatten(indices)
+        
+        self.report("Data unpacked. running bigbird...")
+        
+        x = self.transformer(**tokens).last_hidden_state
+        
+        self.report("bigbird run. applying mask and summing...")
+        
+        x = torch.reshape(x, (dims[0]*dims[1], 768))
+        self.report("mask shape:", indices.shape, "data shape:", x.shape)
+        
+        x = (x.t()*indices).t()
+        self.report("after masking, data is of shape", x.shape)
+        x = torch.reshape(x, (dims[0], dims[1], 768))
+        
+        x = torch.sum(x, dim=1)
+        self.report("after summing, data is of shape", x.shape)
+        
+        x = normalize(x, dim=1)
+        
+        x = self.fc(x)
+        
+        x = self.logits(x)
+        
+        self.report("classifier run.")
+        
+        return x
+    
+    def report(self,*args):
+        if self.reporting:
+            print("(FullContextSpanClassifier): ", " ".join([str(x) for x in args]))
+
+
+
+def get_article_input(sentences,tokenizer,device):
+    
+    tokenizer_inp = sentences
+    batch_tokens = tokenizer(tokenizer_inp, padding=True, truncation=True, return_offsets_mapping=True, return_tensors='pt')
+
+    slice_tensor = torch.ones(batch_tokens['input_ids'].shape)
+    
+    del batch_tokens["offset_mapping"]
+    model_input = [batch_tokens.to(device), slice_tensor.to(device)]
+    
+    return model_input
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-model = SentenceClassifier(keys)
-model.load_state_dict(torch.load("../ignored/distilberta-mfc-no-context.pt", map_location=device))
+model = FullContextSpanClassifier(keys)
+model.load_state_dict(torch.load("../ignored/roberta-mfc-no-context-ce-loss-epoch-1.pt", map_location=device))
 model.eval()
+
+
 
 
 def compute(state):
@@ -93,7 +144,8 @@ def compute(state):
     state['mfc1'] = dict({})
     for i, article in enumerate(state['raw']):
         print("Done with article {} of {}".format(i, len(state['raw'])))
-        state['mfc1'][article] = model(state['raw'][article])
+        model_input = get_article_input(state['raw'][article], tokenizer, device)
+        state['mfc1'][article] = model(model_input)
         print("Shape of article tensor:", state['mfc1'][article].shape)
         state['mfc1'][article] = state['mfc1'][article].tolist()
         
@@ -140,7 +192,9 @@ def filter(state, params):
 
         sentence_probs = torch.tensor(state['mfc1'][url]).t()[target_key]
         sentence_validity_vals = torch.where(sentence_probs > float(params['threshold']), True, False).tolist()
-        out[url] = sentence_validity_vals
+        
+        if len(sentence_validity_vals) > 0:
+            out[url] = sentence_validity_vals
     
     return out
     

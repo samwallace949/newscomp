@@ -100,7 +100,7 @@ def filter(state, params):
     return out
     
 
-def topk(state, sentences, k=5):
+def topk(state, sentences, k=15):
     
     
     top_dict = dict({})

@@ -14,7 +14,7 @@ import json
 #     try:
 #         importlib.import_module(name)
 #     except Exception as e:
-#         print("Unbale to load module", name)
+#         print("Unable to load module", name)
 #         print(e)
 #         continue
 #     FEATURE_NAMES.append(re.split("/", name)[-1][:-3])
@@ -25,11 +25,16 @@ import tfidf
 import pub
 import ner
 import mfcBertNoContext as mfc1
-import mfcBertWithContext as mfc2
+#import mfcBertWithContext as mfc1
+import mfcGroundTruth as frameLabels
+import kMeans
 
 # no NER, too slow
-FEATURE_NAMES = ["lda", "tf", "tfidf", "pub", "ner", "mfc1"]
-FEATURE_MODULES = [lda, tf, tfidf, pub, ner, mfc1]
+# FEATURE_NAMES = ["kMeans", "tf", "tfidf", "pub"]
+# FEATURE_MODULES = [kMeans, tf, tfidf, pub]
+FEATURE_NAMES = ["frameLabels", "tf", "tfidf", "lda", "ner", "pub", "mfc1"]
+FEATURE_MODULES = [frameLabels, tf, tfidf, lda, ner, pub, mfc1]
+
 
 #global variable for storing the current query data, used to
 #uodate frontend as well as provide models with text
@@ -70,6 +75,8 @@ def update_current_article_data(data, calc_features=True):
 
     state = data
 
+
+
     #make the vocabulary a set again (stored and sent over connections as a list)
     state['queryData']['filtered']['vocabSet'] = set(state['queryData']['filtered']['vocabSet'])
 
@@ -80,7 +87,7 @@ def update_current_article_data(data, calc_features=True):
     if calc_features:
         for i,feature in enumerate(FEATURE_MODULES):
             print("Now calculating metric ", FEATURE_NAMES[i])
-            metrics_generated = feature.compute(state['queryData']) or metrics_generated
+            feature.compute(state['queryData'])
 
         state['topk'] = dict({})
         state['topk']['tfidf'] = calc_metrics(state['queryData']['filtered'], k=15, return_tfidf = True)
@@ -121,11 +128,24 @@ def make_filter(flist, is_sentence_level):
             else:
                 valid_sentences[url] = [valid_sentences[url][i] or new_filter[url][i] for i in range(len(valid_sentences[url]))]
     
+    num_valid_docs = 0
+    num_valid_sents = 0
+
+    for url in valid_sentences.keys():
+        is_valid_doc = False
+        for sent in valid_sentences[url]:
+            if sent:
+                num_valid_sents += 1
+                is_valid_doc = True
+        if is_valid_doc:
+            num_valid_docs += 1
+
+
     state['filters'][state['nextFilterId']] = valid_sentences
 
     state['nextFilterId'] += 1
 
-    return state['nextFilterId'] - 1
+    return num_valid_sents, num_valid_docs, state['nextFilterId'] - 1
     
 
 def get_sentences_from_fid(fid, only_valid_sentences=True):
@@ -207,7 +227,10 @@ def get_query_and_topk():
 
     print_state_keys()
 
-    return dict([ ("query",state["query"]), ("topk",state["topk"]) ])
+    try:
+        return dict([ ("query",state["query"]), ("topk",state["topk"]) ])
+    except:
+        return dict([ ("query",""), ("topk",state["topk"]) ])
 
 
 

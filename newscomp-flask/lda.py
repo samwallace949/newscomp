@@ -66,12 +66,17 @@ def filter(state, params):
 
     urls = list(state['raw'].keys())
 
+    target_topic_key = str(state['topics'].index(params['topic']))
+    threshold = float(params["threshold"])
+
+    print("Generating topic filter for code:", state['topics'][int(target_topic_key)])
+
     for url in urls:
-        out[url] = [params['topic'] in sent and sent[params['topic']] for sent in state['lda'][url]]
+        out[url] = [target_topic_key in sent and sent[target_topic_key] > threshold for sent in state['lda'][url]]
     
     return out
 
-def topk(state, sentences, k=5):#TODO: Make sentence level
+def topk(state, sentences, k=15):
 
     num_topics = len(state['topics'])
 
@@ -133,21 +138,25 @@ def get_lemmatized_sentences(data, nlp):
     return token_lists
 
 
-def lda_k_topics(sentence_token_lists, k = 4):
+def lda_k_topics(sentence_token_lists, k = 15):
     
     doc_token_lists = []
     for doc in sentence_token_lists:
-        intermediate_doc_list = []
+        # intermediate_doc_list = []
+        # for sentence in sentence_token_lists[doc]:
+        #     intermediate_doc_list = intermediate_doc_list+sentence
+        # doc_token_lists.append(intermediate_doc_list)
         for sentence in sentence_token_lists[doc]:
-            intermediate_doc_list = intermediate_doc_list+sentence
-        doc_token_lists.append(intermediate_doc_list)
+            doc_token_lists.append(sentence)
 
     vocab = corpora.Dictionary(doc_token_lists)
 
     corpus = [vocab.doc2bow(doc) for doc in doc_token_lists]
 
+    print("Teaining corpus constructed. Training LDA...")
     model = LdaModel(corpus, num_topics = k)
-    
+    print("LDA Done Training")
+
     topics = model.top_topics(corpus = corpus, dictionary = vocab)
     
     topic_terms = []

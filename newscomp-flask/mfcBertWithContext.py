@@ -27,6 +27,44 @@ def calc_annotation_mask(offset_mapping, batch_bounds):
         token_spans.append([1 if i >= start_idx and i < end_idx else 0 for i in range(len(inp))])
     return token_spans
 
+def find_attention_span(sentences, idx,tokenizer):
+
+    inp_len = 513
+
+    sents = [sent for sent in sentences]
+
+    while True:
+        tokenizer_inp = " ".join(sents)
+        tokenized = tokenizer(tokenizer_inp, padding=True, return_offsets_mapping=True, return_tensors='pt')
+        if tokenized["input_ids"].shape[1] > 512:
+            if idx < len(sents)-1:
+                sents = sents[:-1]
+            else:
+                sents = sents[1:]
+                idx -= 1
+        else:
+            break
+    
+    print("Attention Span:", len(sents), "sentences")
+    return sents, idx
+
+
+def get_article_input(sentences,tokenizer,device):
+    
+    truncated_spans = [find_attention_span(sentences,idx,tokenizer) for idx in range(len(sentences))]
+    tokenizer_inp = [x[0] for x in truncated_spans]
+    indices = [x[1] for x in truncated_spans]
+    batch_tokens = tokenizer([" ".join(t) for t in tokenizer_inp], padding=True, truncation=True, return_offsets_mapping=True, return_tensors='pt')
+    bounds = [(len(tokenizer_inp[i][:indices[i]]), len(tokenizer_inp[i][:indices[i]+1])) for i in range(len(indices))]
+    
+    annotation_mask = calc_annotation_mask(batch_tokens["offset_mapping"], bounds)
+    slice_tensor = torch.tensor(annotation_mask, dtype=torch.float)
+
+    del batch_tokens["offset_mapping"]
+    model_input = [batch_tokens.to(device), slice_tensor.to(device)]
+    
+    return model_input
+
 
 
 class FullContextSpanClassifier(NN.Module):
@@ -77,7 +115,7 @@ class FullContextSpanClassifier(NN.Module):
     def report(self,*args):
         if self.reporting:
             print("(FullContextSpanClassifier): ", " ".join([str(x) for x in args]))
-
+    
 #ordering of frame labels for classifier (unfortunately this cant be undone without retraining it)
 keys = ['1.0','2.0','3.0','4.0','5.0','6.0','7.0','8.0','9.0','10.0','11.0','12.0','13.0','14.0','15.0']
     
@@ -138,7 +176,7 @@ codes = {
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 model = FullContextSpanClassifier(keys)
-model.load_state_dict(torch.load("../ignored/distilberta-mfc-with-context.pt", map_location=device))
+model.load_state_dict(torch.load("../ignored/roberta-mfc-no-context-ce-loss-epoch-1.pt", map_location=device))
 model.eval()
 
 
@@ -148,17 +186,12 @@ def compute(state):
 
     state['mfc2'] = dict({})
     for i, article in enumerate(state['raw']):
-        start_idx = len(" ".join(state['raw'][article][:i]))
-        end_idx = start_idx + len(state['raw'][article][:i])
-        bounds = [[start_idx, end_idx]]
-        print("Done with article {} of {}".format(i, len(state['raw'])))
-        inp = tokenizer(" ".join(state['raw'][article]), return_offsets_mapping=True, return_tensors='pt')
-        token_span = calc_annotation_mask(inp["offset_mapping"], bounds)
-        mask_tensor = torch.tensor(token_span)
-        output = model([inp, mask_tensor])
-        logits = torch.argmax(output, dim = 1)
-        state['mfc1'][article] = [keys[logits[i].item()] for i in range(len(state['raw'][article]))]
         
+        model_input = get_article_input(state['raw'][article], tokenizer, device)
+
+        state['mfc2'][article] = model(model_input)
+        print("Shape of article tensor:", state['mfc2'][article].shape)
+        state['mfc2'][article] = state['mfc2'][article].tolist()
     
     
 def options(state):
@@ -180,40 +213,62 @@ def options(state):
     return out
 
 
-def filter(state, code):
-    out = []
+def filter(state, params):
+    out = dict({})
 
     target_key = None
     for key in codes:
-        if codes[key] == code:
-            target_key = key
+        if codes[key] == params['code']:
+            target_key = keys.index(key)
             break
 
+    if target_key is None:
+        print("Error: no matching frame key for that code.")
 
     urls = list(state['raw'].keys())
 
-    if target_key is None:
-        return [False]*len(urls)
-
     for url in urls:
-        frame_set = set(state['mfc2'][url])
-        #chack for basic binary containment of this frame
-        out.append(target_key in frame_set)
+        
+        if target_key is None:
+            out[url] = [False]*len(state['raw'][url])
+
+        sentence_probs = torch.tensor(state['mfc2'][url]).t()[target_key]
+        sentence_validity_vals = torch.where(sentence_probs > float(params['threshold']), True, False).tolist()
+        out[url] = sentence_validity_vals
     
     return out
     
-def topk(state, docs, k=15):
+def topk(state, sentences, k=15):
 
-    frame_frequencies = dict([(codes[key], 0) for key in keys])
+    frame_frequencies = torch.tensor([0]*len(keys))
 
-    for doc in docs:
-
-        for frame in state['mfc2'][doc]:
-            frame_frequencies[codes[frame]] += 1
+    for doc in sentences:
+        sent_probs_tensor = torch.tensor(state['mfc2'][doc])
+        sent_probs_tensor = torch.index_select(sent_probs_tensor, 0, torch.tensor(sentences[doc], dtype=torch.long))
+        norm_doc_probs = normalize(torch.sum(sent_probs_tensor, dim=0), dim=0, p=1)
+        frame_frequencies = torch.add(frame_frequencies, norm_doc_probs)
     
-    return sorted(frame_frequencies.items(), key=lambda a:a[1], reverse=True)[:k]
 
-    
-def examples(state, code, docs, k=5):
-    pass
+    frame_frequencies = normalize(frame_frequencies, dim=0, p=1)
+    norm_corpus_probs = [(codes[keys[i]], frame_frequencies[i].item()) for i in range(len(keys))]
+
+    return sorted(norm_corpus_probs, key=lambda a:a[1], reverse=True)[:min(len(keys),k)]
+
+
+def examples(state, code, sentences, k=5):
+
+    target_idx = [codes[key] for key in keys].index(code)
+
+    example_spans = []
+    for doc in sentences:
+        if len(sentences[doc]) == 0:
+            continue
+        #get index of maximally representative valid sentence in document and return it.
+        sent_probs_tensor = torch.tensor(state['mfc2'][doc])[:, target_idx]
+        sent_probs_tensor = torch.index_select(sent_probs_tensor, 0, torch.tensor(sentences[doc], dtype=torch.long))
+        max_prob = torch.max(sent_probs_tensor).item()
+        argmax_prob = sentences[doc][torch.argmax(sent_probs_tensor).item()]
+        example_spans.append((doc, argmax_prob, argmax_prob + 1, max_prob))
+        
+    return sorted(example_spans, key = lambda a: a[-1], reverse=True)[:min(k, len(example_spans))]
 
